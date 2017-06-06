@@ -1,0 +1,103 @@
+---
+title: "Curve Fitting Death"
+author: "Stuart E. Jones and Jay T. Lennon"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+header-includes:
+   - \usepackage{array}
+output: pdf_document
+geometry: margin=2.54cm
+---
+
+# Set working directory
+```{r}
+rm(list = ls())
+getwd()
+setwd("~/GitHub/SporMut/")
+```
+
+# Load data
+```{r}
+obs <- read.csv("data/longtermdormancy_20151112_nocomments.csv", header = TRUE, stringsAsFactors = FALSE)
+obs$Abund <- as.numeric(obs$Colonies) * 10 ^ as.numeric(obs$Dilution) + 1
+strains <- sort(unique(obs$Strain))
+strains <- strains[table(obs$Strain)>10]
+obs <- obs[obs$Strain%in%strains,]
+time <- (as.numeric(strptime(obs$Firstread_date,format="%d-%b-%y",tz = "EST")) - 
+        as.numeric(strptime(obs$Dormstart_date,format="%d-%b-%y",tz="EST")))/(3600*24)
+obs <- data.frame(obs, time)
+KBS0812 <- obs[(obs$Strain == "KBS0812"),] # Bacillus
+KBS0812 <- subset(KBS0812, time!= 314) # removed potential outliers
+KBS0812 <- subset(KBS0812, Abund < 400000) # removed potential outlier
+```
+
+# Plot survivorship data
+```{r}
+png(filename="~/GitHub/SporMut/figures/survivorship.png",
+     width = 1200, height = 1200, res = 96*2)
+
+par(mar = c(5, 7, 5, 7))
+
+plot(KBS0812$time, KBS0812$Abund, pch = 22, 
+          bg = "white", col = "black", lwd = 2, cex.axis = 1.25, log = "y", xlab = NA, ylab = NA,
+          xlim = c(0, 1000), ylim = c(1000, 10000000), yaxt = "n", xaxt = "n")
+box(lwd = 2)
+
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
+     labels = expression(10^1, 10^3, 10^5, 10^7),
+     at = c(10^1, 10^3, 10^5, 10^7))
+
+axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
+    at=c(10^1, 10^3, 10^5, 10^7), labels = F)
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1.25,
+    at = c(0, 250, 500, 750, 1000), labels = T)
+
+axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
+    at = c(0, 250, 500, 750, 1000), labels = F)
+
+dev.off()
+graphics.off()
+```
+
+# Statistics
+```{r}
+rep1 <- subset(KBS0812, Rep == 1)
+rep2 <- subset(KBS0812, Rep == 2)
+rep3 <- subset(KBS0812, Rep == 3)
+rep4 <- subset(KBS0812, Rep == 4)
+
+fit1 <- lm (Abund ~ time, data = rep1)
+summary(fit1)
+slp1 <- coef(fit1)[2]
+int1 <- coef(fit1)[1]
+
+fit2 <- lm (Abund ~ time, data = rep2)
+summary(fit2)
+slp2 <- coef(fit2)[2]
+int2 <- coef(fit2)[1]
+
+fit3 <- lm (Abund ~ time, data = rep3)
+summary(fit3)
+slp3 <- coef(fit3)[2]
+int3 <- coef(fit3)[1]
+
+fit4 <- lm (Abund ~ time, data = rep4)
+summary(fit4)
+slp4 <- coef(fit4)[2]
+int4 <- coef(fit4)[1]
+
+slopes <- data.frame(slp1, slp2, slp3, slp4)
+slope.test <- t.test(slopes, mu = 0)
+sem <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
+mean.slp <- mean(slp1, slp2, slp3, slp4)
+sem(slopes)
+
+intercepts <- data.frame(int1, int2, int3, int4)
+mean.int <- mean(int1, int2, int3, int4)
+# mortality = 16.1 +/- 4.89 cells per day
+# x-intercept 16.1 x = 112257.8 (0) = 
+
+# How long would it take Bacillus to starve to death?
+abs(mean.int/mean.slp)/365
+# About 19 years
+```
