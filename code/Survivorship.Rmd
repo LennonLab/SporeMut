@@ -1,6 +1,6 @@
 ---
-title: "Curve Fitting Death"
-author: "Stuart E. Jones and Jay T. Lennon"
+title: "Bacillus death rate"
+author: "Jay T. Lennon"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 header-includes:
    - \usepackage{array}
@@ -39,21 +39,21 @@ par(mar = c(5, 7, 5, 7))
 
 plot(KBS0812$time, KBS0812$Abund, pch = 22, 
           bg = "white", col = "black", lwd = 2, cex.axis = 1.25, log = "y", xlab = NA, ylab = NA,
-          xlim = c(0, 1000), ylim = c(1000, 10000000), yaxt = "n", xaxt = "n")
+          xlim = c(0, 1000), ylim = c(10000, 1000000), yaxt = "n", xaxt = "n")
 box(lwd = 2)
 
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
-     labels = expression(10^1, 10^3, 10^5, 10^7),
-     at = c(10^1, 10^3, 10^5, 10^7))
+     labels = expression(10^4, 10^5, 10^6),
+     at = c(10^4, 10^5, 10^6))
 
 axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
-    at=c(10^1, 10^3, 10^5, 10^7), labels = F)
+    at=c(10^4, 10^5, 10^7), labels = F)
 
 axis(side = 1, lwd.ticks = 2, cex.axis = 1.25,
-    at = c(0, 250, 500, 750, 1000), labels = T)
+    at = c(0, 500, 1000), labels = T)
 
 axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
-    at = c(0, 250, 500, 750, 1000), labels = F)
+    at = c(0, 500, 1000), labels = F)
 
 dev.off()
 graphics.off()
