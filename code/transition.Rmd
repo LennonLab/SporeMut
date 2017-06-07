@@ -1,0 +1,92 @@
+---
+title: "*Bacillus* spore transition under starvation"
+author: "Jay T. Lennon"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+header-includes:
+   - \usepackage{array}
+output: pdf_document
+geometry: margin=2.54cm
+---
+
+# Set working directory and load packages
+```{r}
+rm(list = ls())
+getwd()
+setwd("~/GitHub/SporMut/code")
+require(bbmle)
+```
+
+# Load data
+```{r}
+# load raw data
+data <- read.table("../data/spore.transition.txt", header = TRUE)
+
+# calculate total CFUs using dilution
+tot.ab <- data$total * 10^(data$total_dil) 
+
+# calculate spore CFUs using dilution
+spo.ab <- data$spore * 10^(data$spor_dil)
+
+# calculate proportion of vegetative CFUs
+prop.veg <- 1 - (spo.ab / tot.ab)
+
+# calculate proportion of spore CFUs
+prop.spor <- 1 - prop.veg
+
+# make new data frame
+trans <- data.frame(data, tot.ab, spo.ab, prop.veg, prop.spor)
+```
+
+# Fit data with sigmoidal function using MLE
+```{r, results='hide', warning=FALSE, message=FALSE}
+
+# Initial parameters
+A = 0.95 # Maximum 
+B = 0.11 # Minimum
+M = 208 # Midpoint
+W = -21 # Slope
+Z = 2 # Error
+
+# Function
+fit <- mle2(prop.veg ~ dnorm(mean = b + (a - b) / (1 + exp((m - time) / w)), sd = z),
+            start = list(a = A, b = B, m = M, w = W, z = Z), data = trans) 
+```
+
+# Plot data and add sigmoidal function
+```{r}
+png(filename="~/GitHub/SporMut/figures/transition.png",
+     width = 1200, height = 900, res = 96*2)
+
+par(mar = c(5, 7, 5, 7))
+
+plot(trans$time, trans$prop.veg, pch = 22, 
+          bg = "white", col = "black", lwd = 2, cex.axis = 1.25, xlab = NA, ylab = NA,
+          xlim = c(-10, 300), ylim = c(-0.1, 1.1), yaxt = "n", xaxt = "n")
+box(lwd = 2)
+
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
+     labels = expression(0.0, 0.5, 1.0),
+     at = c(0, 0.5, 1.0))
+
+axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
+    at=c(0, 0.5, 1.0), labels = F)
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1.25,
+    at = c(0, 100, 200,300), labels = T)
+
+axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
+    at = c(0,100, 200, 300), labels = F)
+
+mtext('Time (hrs)', side = 1, outer = TRUE, cex = 1.5, 
+      line = -2, adj = 0.5)
+
+mtext('Proportion vegetative colonies', side = 2, outer = TRUE, cex = 1.5, 
+      line = -3.5, adj = 0.5)
+
+curve(coef(fit)[[2]] + (coef(fit)[[1]] - coef(fit)[[2]]) / 
+        (1 + exp((coef(fit)[[3]] - x) / coef(fit)[[4]])), 
+      from = 0, to = 250, add = TRUE, lty = 2, lwd = 2.5) 
+
+dev.off()
+graphics.off()
+```
