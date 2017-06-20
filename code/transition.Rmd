@@ -61,7 +61,7 @@ par(mar = c(5, 7, 5, 7))
 
 plot(trans$time, trans$prop.veg, pch = 22, 
           bg = "white", col = "black", lwd = 2, cex.axis = 1.25, xlab = NA, ylab = NA,
-          xlim = c(-10, 300), ylim = c(-0.1, 1.1), yaxt = "n", xaxt = "n")
+          xlim = c(-10, 625), ylim = c(-0.1, 1.1), yaxt = "n", xaxt = "n")
 box(lwd = 2)
 
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
@@ -72,10 +72,10 @@ axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
     at=c(0, 0.5, 1.0), labels = F)
 
 axis(side = 1, lwd.ticks = 2, cex.axis = 1.25,
-    at = c(0, 100, 200,300), labels = T)
+    at = c(0, 100, 200, 300, 400, 500, 600), labels = T)
 
 axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
-    at = c(0,100, 200, 300), labels = F)
+    at = c(0,100, 200, 300, 400, 500, 600), labels = F)
 
 mtext('Time (hrs)', side = 1, outer = TRUE, cex = 1.5, 
       line = -2, adj = 0.5)
@@ -85,7 +85,7 @@ mtext('Proportion vegetative colonies', side = 2, outer = TRUE, cex = 1.5,
 
 curve(coef(fit)[[2]] + (coef(fit)[[1]] - coef(fit)[[2]]) / 
         (1 + exp((coef(fit)[[3]] - x) / coef(fit)[[4]])), 
-      from = 0, to = 250, add = TRUE, lty = 2, lwd = 2.5) 
+      from = 0, to = 610, add = TRUE, lty = 2, lwd = 2.5, col = "red") 
 
 dev.off()
 graphics.off()
