@@ -24,13 +24,16 @@ colnames(data)[1] <- "time.h"
 time.d <- data$time/24
 data <- data.frame(data[1],time.d,data[2:6])
 
-# calculate total CFUs using dilution
-tot.ab <- data$total * 10^(data$total_dil) 
 
-# calculate spore CFUs using dilution
-spo.ab <- data$spore * 10^(data$spor_dil)
+# calculate total CFUs using dilution 
+# multiply be 10 to go from 100 ul dilution to 1 mL
+tot.ab <- data$total * 10^(data$total_dil) *10
 
-# calculate veg CFUs using diluition
+# calculate spore CFUs using dilution (per 1000 uL dilution)
+# multiply be 10 to go from 100 ul dilution to 1 mL
+spo.ab <- data$spore * 10^(data$spor_dil) *10
+
+# calculate veg CFUs using dilution
 veg.ab <- tot.ab - spo.ab
 
 # calculate proportion of vegetative CFUs
@@ -41,6 +44,15 @@ prop.spor <- 1 - prop.veg
 
 # make new data frame
 trans <- data.frame(data, tot.ab, veg.ab, spo.ab, prop.veg, prop.spor)
+
+trans.A <- trans[ which(trans$rep == 'A'), ]
+trans.B <- trans[ which(trans$rep == 'B'), ]
+trans.C <- trans[ which(trans$rep == 'C'), ]
+trans.D <- trans[ which(trans$rep == 'D'), ]
+
+# write table
+write.table(trans, "../data/spore.trans.output.txt", sep = "\t",
+              col.names = T, row.names = T)
 ```
 
 # Fit data with sigmoidal function using MLE
@@ -67,7 +79,7 @@ par(mar = c(5, 7, 5, 7))
 
 plot(trans$time.d, trans$prop.veg, pch = 22, 
           bg = "white", col = "black", lwd = 2, cex.axis = 1.25, xlab = NA, ylab = NA,
-          xlim = c(-5, 200), ylim = c(-0.1, 1.1), yaxt = "n", xaxt = "n")
+          xlim = c(-25, 250), ylim = c(-0.1, 1.1), yaxt = "n", xaxt = "n")
 box(lwd = 2)
 
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
@@ -78,10 +90,10 @@ axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
     at=c(0, 0.5, 1.0), labels = F)
 
 axis(side = 1, lwd.ticks = 2, cex.axis = 1.25,
-    at = c(0, 50, 100, 150, 200), labels = T)
+    at = c(0, 50, 100, 150, 200, 250), labels = T)
 
 axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
-    at = c(0, 50, 100, 150, 200), labels = F)
+    at = c(0, 50, 100, 150, 200, 250), labels = F)
 
 mtext('Time (d)', side = 1, outer = TRUE, cex = 1.5, 
       line = -2, adj = 0.5)
@@ -91,7 +103,7 @@ mtext('Proportion vegetative', side = 2, outer = TRUE, cex = 1.5,
 
 curve(coef(fit)[[2]] + (coef(fit)[[1]] - coef(fit)[[2]]) / 
         (1 + exp((coef(fit)[[3]] - x) / coef(fit)[[4]])), 
-      from = 0, to = 185, add = TRUE, lty = 2, lwd = 2.5, col = "red") 
+      from = 0, to = 400, add = TRUE, lty = 2, lwd = 2.5, col = "red") 
 
 dev.off()
 graphics.off()
@@ -106,7 +118,7 @@ par(mar = c(5, 7, 5, 7))
 
 plot(trans$time.d, log10(trans$veg.ab), pch = 22, 
           bg = "red", cex = 1.25, col = "black", lwd = 1, cex.axis = 1.25, xlab = NA, ylab = NA,
-          xlim = c(-5, 200), ylim = c(1, 8), yaxt = "n", xaxt = "n")
+          xlim = c(-25, 250), ylim = c(1.5, 9), yaxt = "n", xaxt = "n")
 points(trans$time.d, log10(trans$spo.ab), pch = 22, lwd = 1, bg = "blue", cex = 1.25)
 legend(800, 8, c("Vegetative", "Spore"), pch = 22, pt.bg = c("Red", "Blue"), 
        pt.cex = 2, pt.lwd = 1, bty = 'n', y.intersp = 1, 
@@ -115,17 +127,17 @@ legend(800, 8, c("Vegetative", "Spore"), pch = 22, pt.bg = c("Red", "Blue"),
 box(lwd = 2)
 
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.75, las = 1,
-     labels = expression(10^1, 10^3, 10^5, 10^7, 10^9),
-     at = c(1, 3, 5, 7, 9))
+     labels = expression(10^2, 10^4, 10^6, 10^8),
+     at = c(2, 4, 6, 8))
 
 axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
-    at=c(1, 3, 5, 7, 9), labels = F)
+    at=c(2, 4, 6, 8), labels = F)
 
 axis(side = 1, lwd.ticks = 2, cex.axis = 1,
-    at = c(0, 50, 100, 150, 200), labels = T)
+    at = c(0, 50, 100, 150, 200, 250), labels = T)
 
 axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
-    at = c(0, 50, 100, 150, 200), labels = F)
+    at = c(0, 50, 100, 150, 200, 250), labels = F)
 
 mtext('Time (hrs)', side = 1, outer = TRUE, cex = 2, 
       line = -2, adj = 0.5)
