@@ -1,5 +1,5 @@
 ---
-title: "*Bacillus* spore transition under starvation"
+title: "Sporulation dynamics in response to extreme energy limitation"
 author: "Jay T. Lennon"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 header-includes:
@@ -30,9 +30,7 @@ data <- data.frame(data[1],time.d,data[2:6])
 # colnames(data)[1] <- "time.h"
 # time.d <- data.ltde$time/24
 # data.ltde <- data.frame(data.ltde[1], time.d, data.ltde[2:6])
-
 # data <- rbind(data, data.ltde)
-
 
 # calculate total CFUs using dilution 
 # multiply be 10 to go from 100 ul dilution to 1 mL
@@ -131,16 +129,18 @@ png(filename="~/GitHub/SporMut/figures/pop.densities.png",
 par(mar = c(5, 7, 5, 7))
 
 plot(trans$time.d, log10(trans$veg.ab), pch = 21, 
-          bg = "red", cex = 1.25, col = "red", lwd = 0.75, cex.axis = 1.25, xlab = NA, ylab = NA,
+          bg = "grey80", cex = 1.25, col = "grey80", lwd = 0.75, cex.axis = 1.25, xlab = NA, ylab = NA,
           xlim = c(-25, 250), ylim = c(1.5, 9), yaxt = "n", xaxt = "n")
-points(trans$time.d, log10(trans$spo.ab), pch = 21, lwd = 0.75, col = "grey", bg = "grey", cex = 1.25)
+points(trans$time.d, log10(trans$spo.ab), pch = 21, lwd = 0.75, col = "grey50", bg = "grey50", cex = 1.25)
 
+# https://stackoverflow.com/questions/19612348/break-x-axis-in-r
 # xgap <- ifelse(trans$time.d > 1500, trans$time.d-1295, trans$time.d)
 # plot(xgap, log10(trans$veg.ab), pch = 21, 
 #           bg = "red", cex = 1.25, col = "black", lwd = 1, cex.axis = 1.25, xlab = NA, ylab = NA,
 #           xlim = c(-25, 300), ylim = c(1.5, 9), yaxt = "n", xaxt = "n")
 # points(xgap, log10(trans$spo.ab), pch = 22, lwd = 1, bg = "blue", cex = 1.25)
-legend(135, 8.5, c("Spore", "Non-spore"), pch = 21, pt.bg = c("grey", "red"), col = c("grey", "red"),
+
+legend(145, 8.75, c("Spore", "Non-spore"), pch = 21, pt.bg = c("grey50", "grey80"), col = c("grey50", "grey80"),
        pt.cex = 1.25, pt.lwd = 0.75, bty = 'n', y.intersp = 0.80, lwd = 0,
        x.intersp = -0.5)
 
@@ -163,7 +163,10 @@ mtext('Time (d)', side = 1, outer = TRUE, cex = 2,
       line = -2, adj = 0.5)
 
 mtext(expression('Bacteria (CFU ml'^-1*')'), side = 2, outer = TRUE, cex = 2, 
-      line = -2.5, adj = 0.5)
+      line = -3.5, adj = 0.5)
+
+#mtext('Spores', side = 1, line = -8.5, at = 265, cex = 0.75)
+#mtext('Non-spores', side = 1, line = -7.5, at = 280, cex = 0.75)
 
 # Fit non-spore abundance with sigmoidal function using MLE
 # Initial parameters
@@ -179,7 +182,7 @@ fit2 <- mle2(log10(veg.ab) ~ dnorm(mean = b + (a - b) / (1 + exp((m - time.d) / 
 
 curve(coef(fit2)[[2]] + (coef(fit2)[[1]] - coef(fit2)[[2]]) / 
         (1 + exp((coef(fit2)[[3]] - x) / coef(fit2)[[4]])), 
-      from = 0, to = 240, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
+      from = 0, to = 235, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
 
 # Fit spore abundance with sigmoidal function using MLE
 # Initial parameters
@@ -195,7 +198,7 @@ fit3 <- mle2(log10(spo.ab) ~ dnorm(mean = b + (a - b) / (1 + exp((m - time.d) / 
 
 curve(coef(fit3)[[2]] + (coef(fit3)[[1]] - coef(fit3)[[2]]) / 
         (1 + exp((coef(fit3)[[3]] - x) / coef(fit3)[[4]])), 
-      from = 0, to = 240, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
+      from = 0, to = 235, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
 
 dev.off()
 graphics.off()
