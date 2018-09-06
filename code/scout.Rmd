@@ -1,0 +1,246 @@
+---
+title: "Scout transition of pure spores"
+author: "Jay T. Lennon"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+header-includes:
+   - \usepackage{array}
+output: pdf_document
+geometry: margin=2.54cm
+---
+# Overview
+Heat-treated a wild-type Bacillus culture (KBS0812) to kill of vegetative cells. 
+Then followed the number of vegetative and spores colonies after. 
+Aim was to see if trends in vegetative abundance which would be consistnent with germination
+This could affect mutation rate (compared to if there's no turnover)
+
+# Set working directory and load packages
+```{r}
+rm(list = ls())
+getwd()
+setwd("~/GitHub/SporMut")
+require("bbmle")
+require("grid")
+require("png")
+```
+
+# Load data
+```{r}
+# load raw data
+data <- read.table("data/spore.scout.txt", header = TRUE)
+t0 <- data$date[1]
+days <- as.numeric(difftime(data$date,t0, units="days"))
+hours <- days *24
+data <- data.frame(days,hours,data[2:6])
+
+# calculate total CFUs using dilution 
+# multiply be 10 to go from 100 ul dilution to 1 mL
+tot.ab <- data$total * 10^(data$total_dil) *10
+
+# calculate spore CFUs using dilution (per 1000 uL dilution)
+# multiply be 10 to go from 100 ul dilution to 1 mL
+spo.ab <- data$spore * 10^(data$spor_dil) *10
+
+# calculate veg CFUs using dilution
+veg.ab <- tot.ab - spo.ab
+
+# calculate proportion of vegetative CFUs
+prop.veg <- 1 - (spo.ab / tot.ab)
+
+# calculate proportion of spore CFUs
+prop.spor <- 1 - prop.veg
+
+# make new data frame
+scout <- data.frame(data, tot.ab, veg.ab, spo.ab, prop.veg, prop.spor)
+
+scout.A <- scout[ which(scout$rep == 'A'), ]
+scout.B <- scout[ which(scout$rep == 'B'), ]
+scout.C <- scout[ which(scout$rep == 'C'), ]
+scout.D <- scout[ which(scout$rep == 'D'), ]
+
+#scout <- scout[which(scout$prop.veg > 0), ]
+
+# Is percent vegetative cells greater than zero?
+t.test(scout$prop.veg, mu=0)
+
+
+
+
+
+# write table
+write.table(scout, "data/spore.scout.output.txt", sep = "\t",
+              col.names = T, row.names = T)
+```
+
+# Fit data with sigmoidal function using MLE
+```{r, results='hide', warning=FALSE, message=FALSE}
+#
+# # Initial parameters
+# A = 0.95 # Maximum
+# B = 0.11 # Minimum
+# M = 9 # Midpoint
+# W = -21 # Slope
+# Z = 2 # Error
+#
+# # Function
+# fit <- mle2(prop.veg ~ dnorm(mean = b + (a - b) / (1 + exp((m - time.d) / w)), sd = z),
+#             start = list(a = A, b = B, m = M, w = W, z = Z), data = trans)
+```
+
+# Plot data and add sigmoidal function
+```{r}
+png(filename="~/GitHub/SporMut/output/scout-veg-percent.png",
+     width = 900, height = 900, res = 96*2)
+
+par(mar = c(5, 7, 5, 7))
+
+plot(scout$day, scout$prop.veg, pch = 21, 
+          bg = "grey", col = "grey", lwd = 2, cex.axis = 1.25, xlab = NA, ylab = NA,
+          xlim = c(-5, 60), ylim = c(-0.6, 1.1), yaxt = "n", xaxt = "n")
+box(lwd = 2)
+
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
+     labels = expression(-0.5, 0.0, 0.5, 1.0),
+     at = c(-0.5, 0, 0.5, 1.0))
+
+axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
+    at=c(-0.5, 0, 0.5, 1.0), labels = F)
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1.25,
+    at = c(0, 25, 50), labels = T)
+
+axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
+    at = c(0, 25, 50), labels = F)
+
+mtext('Time (d)', side = 1, outer = TRUE, cex = 1.5, 
+      line = -2, adj = 0.5)
+
+mtext('Proportion vegetative', side = 2, outer = TRUE, cex = 1.5, 
+      line = -3.5, adj = 0.5)
+
+# curve(coef(fit)[[2]] + (coef(fit)[[1]] - coef(fit)[[2]]) /
+#        (1 + exp((coef(fit)[[3]] - x) / coef(fit)[[4]])),
+#        from = 0, to = 240, add = TRUE, lty = 2, lwd = 2.5, col = "black")
+
+#0812A
+regA.per <- lm(scout.A$prop.veg ~ scout.A$days)
+clip(0.05,60,-0.6,1)
+A.int <- regA.per$coefficients[1]
+A.slp <- regA.per$coefficients[2]
+abline(a = A.int, b = A.slp, col = "red", lwd = 2.5, lty = 6)
+
+#0812B
+regB.per <- lm(scout.B$prop.veg ~ scout.B$days)
+clip(0.05,60,-0.6,1)
+B.int <- regB.per$coefficients[1]
+B.slp <- regB.per$coefficients[2]
+abline(a = B.int, b = B.slp, col = "red", lwd = 2.5, lty = 6)
+
+#0812C
+regC.per <- lm(scout.C$prop.veg ~ scout.C$days)
+clip(0.05,60,-0.6,1)
+C.int <- regC.per$coefficients[1]
+C.slp <- regC.per$coefficients[2]
+abline(a = C.int, b = C.slp, col = "red", lwd = 2.5, lty = 6)
+
+#0812D
+regD.per <- lm(scout.D$prop.veg ~ scout.D$days)
+clip(0.05,60,-0.6,1)
+D.int <- regD.per$coefficients[1]
+D.slp <- regD.per$coefficients[2]
+abline(a = D.int, b = D.slp, col = "red", lwd = 2.5, lty = 6)
+
+dev.off()
+graphics.off()
+
+img <- readPNG("~/GitHub/SporMut/output/scout-veg-percent.png")
+grid.raster(img)
+```
+
+###STOPPED HERE
+
+# Plot population densisites over time 
+```{r}
+png(filename="~/GitHub/SporMut/figures/pop.densities.png",
+     width = 1200, height = 900, res = 96*2)
+
+par(mar = c(5, 7, 5, 7))
+
+plot(trans$time.d, log10(trans$veg.ab), pch = 21, 
+          bg = "grey80", cex = 1.25, col = "grey80", lwd = 0.75, cex.axis = 1.25, xlab = NA, ylab = NA,
+          xlim = c(-25, 250), ylim = c(1.5, 9), yaxt = "n", xaxt = "n")
+points(trans$time.d, log10(trans$spo.ab), pch = 21, lwd = 0.75, col = "grey50", bg = "grey50", cex = 1.25)
+
+# https://stackoverflow.com/questions/19612348/break-x-axis-in-r
+# xgap <- ifelse(trans$time.d > 1500, trans$time.d-1295, trans$time.d)
+# plot(xgap, log10(trans$veg.ab), pch = 21, 
+#           bg = "red", cex = 1.25, col = "black", lwd = 1, cex.axis = 1.25, xlab = NA, ylab = NA,
+#           xlim = c(-25, 300), ylim = c(1.5, 9), yaxt = "n", xaxt = "n")
+# points(xgap, log10(trans$spo.ab), pch = 22, lwd = 1, bg = "blue", cex = 1.25)
+
+legend(145, 8.75, c("Spore", "Non-spore"), pch = 21, pt.bg = c("grey50", "grey80"), col = c("grey50", "grey80"),
+       pt.cex = 1.25, pt.lwd = 0.75, bty = 'n', y.intersp = 0.80, lwd = 0,
+       x.intersp = -0.5)
+
+box(lwd = 2)
+
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
+     labels = expression(10^2, 10^4, 10^6, 10^8),
+     at = c(2, 4, 6, 8))
+
+axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
+    at=c(2, 4, 6, 8), labels = F)
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1.25,
+    at = c(0, 50, 100, 150, 200, 250), labels = T)
+
+axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
+    at = c(0, 50, 100, 150, 200, 250), labels = F)
+
+mtext('Time (d)', side = 1, outer = TRUE, cex = 2, 
+      line = -2, adj = 0.5)
+
+mtext(expression('Bacteria (CFU ml'^-1*')'), side = 2, outer = TRUE, cex = 2, 
+      line = -3.5, adj = 0.5)
+
+#mtext('Spores', side = 1, line = -8.5, at = 265, cex = 0.75)
+#mtext('Non-spores', side = 1, line = -7.5, at = 280, cex = 0.75)
+
+# Fit non-spore abundance with sigmoidal function using MLE
+# Initial parameters
+A = 6 # Maximum 
+B = 6 # Minimum
+M = 5 # Midpoint
+W = -21 # Slope
+Z = 2 # Error
+
+# Function
+fit2 <- mle2(log10(veg.ab) ~ dnorm(mean = b + (a - b) / (1 + exp((m - time.d) / w)), sd = z),
+            start = list(a = A, b = B, m = M, w = W, z = Z), data = trans) 
+
+curve(coef(fit2)[[2]] + (coef(fit2)[[1]] - coef(fit2)[[2]]) / 
+        (1 + exp((coef(fit2)[[3]] - x) / coef(fit2)[[4]])), 
+      from = 0, to = 235, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
+
+# Fit spore abundance with sigmoidal function using MLE
+# Initial parameters
+A = 6 # Maximum 
+B = 6 # Minimum
+M = 5 # Midpoint
+W = 21 # Slope
+Z = 2 # Error
+
+# Function
+fit3 <- mle2(log10(spo.ab) ~ dnorm(mean = b + (a - b) / (1 + exp((m - time.d) / w)), sd = z),
+            start = list(a = A, b = B, m = M, w = W, z = Z), data = trans) 
+
+curve(coef(fit3)[[2]] + (coef(fit3)[[1]] - coef(fit3)[[2]]) / 
+        (1 + exp((coef(fit3)[[3]] - x) / coef(fit3)[[4]])), 
+      from = 0, to = 235, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
+
+dev.off()
+graphics.off()
+
+# Show Plot
+img <- readPNG("figures/pop.densities.png")
+grid.raster(img)
+```
