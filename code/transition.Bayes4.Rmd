@@ -1,0 +1,254 @@
+---
+title: "Sporulation dynamics in response to extreme energy limitation"
+author: "Jay T. Lennon"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+header-includes:
+  - \usepackage{array}
+output: pdf_document
+geometry: margin=2.54cm
+---
+  
+# Set working directory and load packages
+```{r}
+rm(list = ls())
+getwd()
+setwd("~/GitHub/SporMut")
+require("bbmle")
+require("grid")
+require("png")
+library("rjags") # external program for mcmc
+```
+
+# Load data
+```{r}
+data <- read.table("Data/spore.transition.txt", header = TRUE)
+head(data)
+colnames(data)[1] <- "time.h"
+time.d <- data$time/24
+data <- data.frame(data[1],time.d,data[2:6])
+
+# calculate total CFUs using dilution 
+# multiply be 10 to go from 100 ul dilution to 1 mL
+
+# put in same scale but keep to reasonable number to not put too much pressure on the prior
+# tot.ab <- data$total * 10^(data$total_dil) *10 # original
+tot.ab <- data$total * 10^(data$total_dil+1) / 10^(4)
+
+# calculate spore CFUs using dilution (per 1000 uL dilution)
+# multiply be 10 to go from 100 ul dilution to 1 mL
+# spo.ab <- data$spore * 10^(data$spor_dil) * 10
+spo.ab <- data$spore * 10^(data$spor_dil+1)/ 10^(4)
+
+# calculate veg CFUs using dilution
+veg.ab <- tot.ab - spo.ab
+
+# calculate proportion of vegetative CFUs
+prop.veg <- 1 - (spo.ab / tot.ab)
+
+# calculate proportion of spore CFUs
+prop.spor <- 1 - prop.veg
+
+# make new data frame
+trans <- data.frame(data, tot.ab, veg.ab, spo.ab, prop.veg, prop.spor)
+
+trans.A <- trans[ which(trans$rep == 'A'), ]
+trans.A.neg <- sum(trans.A$veg.ab <0) # 8 negative values
+trans.B <- trans[ which(trans$rep == 'B'), ]
+trans.B.neg <- sum(trans.B$veg.ab <0) # 9 negative values
+trans.C <- trans[ which(trans$rep == 'C'), ]
+trans.C.neg <- sum(trans.C$veg.ab <0) # 22 negative values
+trans.D <- trans[ which(trans$rep == 'D'), ]
+trans.D.neg <- sum(trans.D$veg.ab <0) # 26 negative values
+# plot(trans.D$time.h,trans.D$total)
+```
+
+# Construct gamma priors and get associated parameters 
+```{r}
+# Observed total (T) and spore (S) abundances from CFU counts
+T_obs <- trans.D$tot.ab
+S_obs <- trans.D$spo.ab
+
+# Get informative priors for S and vegetative cells (V) based on observed values
+# Start by putting a gamma prior on S and V. 
+# We wil get parameters for those distributions using the method of moments:
+# mean(x) = a/b; var(x) = a/b^2
+# where a is shape parameter and b is an inverse scale parameter of gamma distribution
+# Taking the log of both sides of each equation, we get a system of linear equations
+# Let's do this for S_obs for two parts of the time series:
+# equilbirum phase (S_par.eq) after 240 hrs and transition phase (S_par.tr) 0-240 hrs.  
+
+S_par.eq <- exp(solve(matrix(c(1,1,-1,-2),2,2), matrix(log(c(mean(S_obs[trans.D$time.h>240]),
+            var(S_obs[trans.D$time.h>240]))),2,1)))
+
+S_par.tr <- exp(solve(matrix(c(1,1,-1,-2),2,2), matrix(log(c(mean(S_obs[trans.D$time.h<240]),
+            var(S_obs[trans.D$time.h<240]))),2,1)))
+
+# Now for V_est (our ugly inital estimate of V where we ignore negatives)
+V_est <- (T_obs-S_obs)[which((T_obs-S_obs)>0)]
+
+V_par.eq <- exp(solve(matrix(c(1,1,-1,-2),2,2),
+            matrix(log(c(mean(V_est[trans.D$time.h[which((T_obs-S_obs)>0)]>240]),
+            var(V_est[trans.D$time.h[which((T_obs-S_obs)>0)]>240]))),2,1)))
+
+V_par.tr<- exp(solve(matrix(c(1,1,-1,-2),2,2),
+            matrix(log(c(mean(V_est[trans.D$time.h[which((T_obs-S_obs)>0)]<240]),
+            var(V_est[trans.D$time.h[which((T_obs-S_obs)>0)]<240]))),2,1)))
+
+# Check agreement betwwen hisotgram of observed and curve of gamma priors for equilibrium
+
+# Spore - equilibrium phase
+hist(S_obs[trans.D$time.h>240], freq = F)
+
+curve(dgamma(x, S_par.eq[1], S_par.eq[2]), from = min(S_obs), to = max(S_obs), add = T)
+
+# Spore - equilibrium phase
+hist(V_est[trans.D$time.h[which((T_obs-S_obs)>0)]>240], freq = F)
+
+curve(dgamma(x,V_par.eq[1], V_par.eq[2]), 
+            from =min(V_est[trans.D$time.h[which((T_obs-S_obs)>0)]>240]), 
+            to = max(V_est[trans.D$time.h[which((T_obs-S_obs)>0)]>240]), add = T)
+
+# Spore - transition phase
+hist(S_obs[trans.D$time.h<240], freq = F)
+
+curve(dgamma(x, S_par.tr[1], S_par.tr[2]), from = min(S_obs), to = max(S_obs), add = T)
+
+# Vegetative - transition phase
+hist(V_est[trans.D$time.h[which((T_obs-S_obs)>0)]<240], freq = F)
+
+curve(dgamma(x,V_par.tr[1], V_par.tr[2]), 
+            from = min(V_est[trans.D$time.h[which((T_obs-S_obs)>0)]<240]), 
+            to = max(V_est[trans.D$time.h[which((T_obs-S_obs)>0)]<240]), add = T)
+```
+
+# Model
+```{r}
+# Now, set up a model that mimics the experiment where we are intersted in V and S
+# But we only get to see the noisy estimates of S_obs and T_obs
+
+mod<-"model{
+for(i in 1:19){
+V[i]~dgamma(v_alpha1,v_beta1)
+S[i]~dgamma(s_alpha1,s_beta1)
+
+# Set up observation model as acutal values plus observation error
+Sobs[i]~dnorm(S[i],tau.to)
+Tobs[i]~dnorm(V[i]+S[i],tau.so)
+}
+
+for(i in 20:n){
+V[i]~dgamma(v_alpha2,v_beta2)
+S[i]~dgamma(s_alpha2,s_beta2)
+
+# Set up observation model as acutal values plus observation error
+Sobs[i]~dnorm(S[i],tau.to)
+Tobs[i]~dnorm(V[i]+S[i],tau.so)
+}
+
+# Set some priors (what decisions are made here?)
+sig.v~dunif(0,1000)
+tau.v <- pow(sig.v,-2)
+sig.s~dunif(0,1000)
+tau.s <- pow(sig.v,-2)
+sig.so~dunif(0,1000)
+sig.to~dunif(0,1000)
+tau.so <- pow(sig.so,-2)
+tau.to <- pow(sig.to,-2)
+}"
+
+# Grab the data we want to feed it
+jdata <- list('n' = nrow(trans.D), 'Sobs' = S_obs, "Tobs" = T_obs, "v_alpha1" = V_par.tr[1], 
+        "v_beta1" = V_par.tr[2], "s_alpha1" = S_par.tr[1], "s_beta1" = S_par.tr[2],"v_alpha2" = V_par.eq[1], 
+        "v_beta2" = V_par.eq[2], "s_alpha2" = S_par.eq[1], "s_beta2" = S_par.eq[2])
+
+# Initialize the model
+tot.mod <- jags.model(textConnection(mod), data = jdata, n.chains = 5)
+
+# Burn-in: autoupdating until model converges
+update(tot.mod, 1000)
+
+# Get samples from it for what we are intested: V, S and the obs errors
+# Creates output with n.iter samples per chain
+fit.mod <- coda.samples(tot.mod, c('V','S','sig.to','sig.so'), n.iter = 5000)
+
+# Get summary of our 5 chains (i.e., number of Markov chains)
+f <- summary(fit.mod)
+
+# Look at S values
+f$statistics[grep("S",rownames(f$statistics)),]
+f$quantiles[grep("S",rownames(f$quantiles)),]
+
+# Look at V values
+f$statistics[grep("V",rownames(f$statistics)),]
+f$quantiles[grep("V",rownames(f$quantiles)),]
+
+time <- trans.D$time.d
+s.est <- f$statistics[grep("S",rownames(f$statistics)),1]
+v.est <- f$statistics[grep("V",rownames(f$statistics)),1]
+s.lower <- f$quantiles[grep("S",rownames(f$quantiles)),1]
+s.upper <- f$quantiles[grep("S",rownames(f$quantiles)),5]
+v.est <- f$statistics[grep("V",rownames(f$statistics)),1]
+v.lower <- f$quantiles[grep("V",rownames(f$quantiles)),1]
+v.upper <- f$quantiles[grep("V",rownames(f$quantiles)),5]
+data2 <- data.frame(time, s.est,s.lower,s.upper, v.est,v.lower,v.upper)
+```
+
+# Plot population densisites over time 
+```{r}
+png(filename="~/GitHub/SporMut/figures/pop.densities.D.BayesIII.png",
+     width = 1200, height = 900, res = 96*2)
+
+par(mar = c(5, 7, 5, 7))
+
+plot(data2$time, log10(data2$v.est*10^4), pch = 21, 
+     bg = "grey80", cex = .5, col = "grey80", lwd = 0.75, cex.axis = 1.25, 
+     xlab = NA, ylab = NA, xlim = c(-25, 250), ylim = c(1.5, 9), yaxt = "n", xaxt = "n")
+
+arrows(data2$time,log10(data2$v.est*10^4),data2$time,log10(data2$v.upper*10^4),
+       length = 0,angle = 90,col="grey80")
+
+arrows(data2$time,log10(data2$v.est*10^4),data2$time,log10(data2$v.lower*10^4),
+       length = 0,angle = 90,col="grey80")
+
+points(data2$time, log10(data2$s.est*10^4), pch = 21, lwd = 0.75, col = "grey50", 
+       bg = "grey50", cex = .5)
+
+arrows(data2$time,log10(data2$s.est*10^4),data2$time,log10(data2$s.upper*10^4),
+       length = 0,angle = 90,col="grey50")
+
+arrows(data2$time,log10(data2$s.est*10^4),data2$time,log10(data2$s.lower*10^4),
+       length = 0,angle = 90,col="grey50")
+
+legend(145, 8.75, c("Spore", "Non-spore"), pch = 21, pt.bg = c("grey50", "grey80"), 
+       col = c("grey50", "grey80"), pt.cex = 1.25, pt.lwd = 0.75, bty = 'n', 
+       y.intersp = 0.80, lwd = 0, x.intersp = -0.5)
+
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
+     labels = expression(10^2, 10^4, 10^6, 10^8),
+     at = c(2, 4, 6, 8))
+
+axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
+     at=c(2, 4, 6, 8), labels = F)
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1.25,
+     at = c(0, 50, 100, 150, 200, 250), labels = T)
+
+axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
+     at = c(0, 50, 100, 150, 200, 250), labels = F)
+
+mtext('Time (d)', side = 1, outer = TRUE, cex = 2, 
+      line = -2, adj = 0.5)
+
+mtext(expression('Bacteria (CFU ml'^-1*')'), side = 2, outer = TRUE, cex = 2, 
+      line = -3.5, adj = 0.5)
+
+# Close Plot Device
+dev.off()
+graphics.off()
+ 
+# Show Plot
+img <- readPNG("GitHub/SporMut/figures/pop.densities.D.BayesIII.png")
+grid.raster(img)
+
+dev.off()
+```
