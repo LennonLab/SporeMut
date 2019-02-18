@@ -8,6 +8,11 @@ output: pdf_document
 geometry: margin=2.54cm
 ---
   
+# Some notes
+Hour = 13196 Day 550 is wonky. All reps have counts that are about an order of magnitude low. 
+Also, there's a break in sampling from 13292 - 14108 hours (554 -588 days); this likely corresponds with Brent being out of lab for survery. 
+Perhaps for these reasons, it's reasonable to stop day 548?
+  
 # Set working directory and load packages
 ```{r}
 rm(list = ls())
@@ -66,7 +71,9 @@ trans.D.neg <- sum(trans.D$veg.ab <0) # 26 negative values
 # Construct gamma priors and get associated parameters 
 ```{r}
 # Pick a replication population (A - D)
-trans.rep <- trans.C
+# This needs to be rerun for each population when data is updated
+
+trans.rep <- trans.D
 
 # Observed total (T) and spore (S) abundances from CFU counts
 T_obs <- trans.rep$tot.ab
@@ -195,7 +202,7 @@ v.est <- f$statistics[grep("V",rownames(f$statistics)),1]
 v.lower <- f$quantiles[grep("V",rownames(f$quantiles)),1]
 v.upper <- f$quantiles[grep("V",rownames(f$quantiles)),5]
 data2 <- data.frame(time, s.est,s.lower,s.upper, v.est,v.lower,v.upper)
-write.table(data2, "data/transition.Bayes.repC.txt", sep = "\t", col.names = T, row.names = F)
+write.table(data2, "data/transition.Bayes.repD.txt", sep = "\t", col.names = T, row.names = F)
 ```
 
 # Calculate means and SEMS from Bayes estimates
@@ -217,14 +224,14 @@ V.sem <- apply(data.frame(data.B$Veg.A, data.B$Veg.B, data.B$Veg.C, data.B$Veg.D
 
 # Plot population densisites over time 
 ```{r}
-png(filename="~/GitHub/SporMut/output/pop.densities.D.BayesIII.png",
+png(filename="/Users/lennonj/GitHub/SporMut/output/pop.densities.D.BayesIII.png",
      width = 1200, height = 900, res = 96*2)
 
 par(mar = c(5, 7, 5, 7))
 
 plot(data.all$time, log10(data.all$veg), pch = 21, 
      bg = "grey80", cex = 1.25, col = "grey80", lwd = 0.75, cex.axis = 1.25, 
-     xlab = NA, ylab = NA, xlim = c(-25, 550), ylim = c(4.5, 8.7), yaxt = "n", xaxt = "n")
+     xlab = NA, ylab = NA, xlim = c(-25, 700), ylim = c(4.5, 8.7), yaxt = "n", xaxt = "n")
 
 points(data.all$time, log10(data.all$spore), pch = 21, lwd = 0.75, col = "grey50", 
        bg = "grey50", cex = 1.25)
@@ -243,10 +250,10 @@ axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
      at=c(5, 6, 7, 8), labels = F)
 
 axis(side = 1, lwd.ticks = 2, cex.axis = 1.25,
-     at = c(0, 100, 200, 300, 400, 500), labels = T)
+     at = c(0, 100, 200, 300, 400, 500, 600, 700), labels = T)
 
 axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
-     at = c(0, 100, 200, 300, 400, 500), labels = F)
+     at = c(0, 100, 200, 300, 400, 500, 600, 700), labels = F)
 
 mtext('Time (d)', side = 1, outer = TRUE, cex = 2, 
       line = -2, adj = 0.5)
@@ -268,7 +275,7 @@ fit2 <- mle2(log10(veg) ~ dnorm(mean = b + (a - b) / (1 + exp((m - time) / w)), 
 
 curve(coef(fit2)[[2]] + (coef(fit2)[[1]] - coef(fit2)[[2]]) / 
         (1 + exp((coef(fit2)[[3]] - x) / coef(fit2)[[4]])), 
-      from = -6, to = 525, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
+      from = -6, to = 650, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
 
 # Fit spore abundance with sigmoidal function using MLE
 # Initial parameters
@@ -284,13 +291,13 @@ fit3 <- mle2(log10(spore) ~ dnorm(mean = b + (a - b) / (1 + exp((m - time) / w))
 
 curve(coef(fit3)[[2]] + (coef(fit3)[[1]] - coef(fit3)[[2]]) / 
         (1 + exp((coef(fit3)[[3]] - x) / coef(fit3)[[4]])), 
-      from = 0, to = 525, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
+      from = 0, to = 650, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
 
 # Close Plot Device
 dev.off()
 graphics.off()
  
 # Show Plot
-img <- readPNG("~/GitHub/SporMut/output/pop.densities.D.BayesIII.png")
+img <- readPNG("/Users/lennonj/GitHub/SporMut/output/pop.densities.D.BayesIII.png")
 grid.raster(img)
 ```
