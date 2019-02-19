@@ -8,11 +8,6 @@ output: pdf_document
 geometry: margin=2.54cm
 ---
   
-# Some notes
-Hour = 13196 Day 550 is wonky. All reps have counts that are about an order of magnitude low. 
-Also, there's a break in sampling from 13292 - 14108 hours (554 -588 days); this likely corresponds with Brent being out of lab for survery. 
-Perhaps for these reasons, it's reasonable to stop day 548?
-  
 # Set working directory and load packages
 ```{r}
 rm(list = ls())
@@ -32,6 +27,8 @@ head(data)
 colnames(data)[1] <- "time.h"
 time.d <- data$time/24
 data <- data.frame(data[1],time.d,data[2:6])
+
+# there's a break in sampling from 13292 - 14108 hours (554 -588 days); coorresponds with technician recovery
 
 # calculate total CFUs using dilution 
 # multiply be 10 to go from 100 ul dilution to 1 mL
@@ -72,6 +69,8 @@ trans.D.neg <- sum(trans.D$veg.ab <0) # 26 negative values
 ```{r}
 # Pick a replication population (A - D)
 # This needs to be rerun for each population when data is updated
+# Ouput file must be changed, too
+# See: write.table(data2, "data/transition.Bayes.repD.txt...)
 
 trans.rep <- trans.D
 
