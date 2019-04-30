@@ -22,13 +22,11 @@ sem <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
 
 # Load data
 ```{r}
-data <- read.table("data/spore.transition.txt", header = TRUE)
+data <- read.table("data/spore.scout.2.txt", header = TRUE)
 head(data)
 colnames(data)[1] <- "time.h"
 time.d <- data$time/24
 data <- data.frame(data[1],time.d,data[2:6])
-
-# there's a break in sampling from 13292 - 14108 hours (554 -588 days); coorresponds with technician recovery
 
 # calculate total CFUs using dilution 
 # multiply be 10 to go from 100 ul dilution to 1 mL
@@ -63,20 +61,6 @@ trans.C.neg <- sum(trans.C$veg.ab <0) # 22 negative values
 trans.D <- trans[ which(trans$rep == 'D'), ]
 trans.D.neg <- sum(trans.D$veg.ab <0) # 26 negative values
 # plot(trans.D$time.h,trans.D$total)
-
-
-# Data from end of LTDE
-end.data <- read.table("data/spore.transition.ltde.txt", header = TRUE)
-head(end.data)
-time.end.d <- end.data$time.h/24
-end.data <- data.frame(end.data[1],time.end.d,end.data[2:6])
-end.tot.ab <- end.data$total * 10^(end.data$total_dil) * 10
-end.spo.ab <- end.data$spore * 10^(end.data$spor_dil) * 10
-end.veg.ab <- end.tot.ab - end.spo.ab
-end.prop.veg <- 1 - (end.spo.ab / end.tot.ab)
-end.prop.spor <- 1 - end.prop.veg
-end.data.sum <-data.frame(end.data$time.end.d, end.spo.ab, end.veg.ab)
-colnames(end.data.sum) <- c("time", "spore", "veg")
 ```
 
 # Construct gamma priors and get associated parameters 
@@ -101,48 +85,48 @@ S_obs <- trans.rep$spo.ab
 # Let's do this for S_obs for two parts of the time series:
 # equilbirum phase (S_par.eq) after 240 hrs and transition phase (S_par.tr) 0-240 hrs.  
 
-S_par.eq <- exp(solve(matrix(c(1,1,-1,-2),2,2), matrix(log(c(mean(S_obs[trans.rep$time.h>240]),
-            var(S_obs[trans.rep$time.h>240]))),2,1)))
-
-S_par.tr <- exp(solve(matrix(c(1,1,-1,-2),2,2), matrix(log(c(mean(S_obs[trans.rep$time.h<240]),
-            var(S_obs[trans.rep$time.h<240]))),2,1)))
-
-# Now for V_est (our ugly inital estimate of V where we ignore negatives)
-V_est <- (T_obs-S_obs)[which((T_obs-S_obs)>0)]
-
+S_par.eq <- exp(solve(matrix(c(1,1,-1,-2),2,2), matrix(log(c(mean(S_obs[trans.rep$time.h<6000]),
+             var(S_obs[trans.rep$time.h<6000]))),2,1)))
+# 
+# S_par.tr <- exp(solve(matrix(c(1,1,-1,-2),2,2), matrix(log(c(mean(S_obs[trans.rep$time.h<240]),
+#             var(S_obs[trans.rep$time.h<240]))),2,1)))
+# 
+# # Now for V_est (our ugly inital estimate of V where we ignore negatives)
+V_est <- (T_obs-S_obs)[which((T_obs-S_obs)<6000)]
+ 
 V_par.eq <- exp(solve(matrix(c(1,1,-1,-2),2,2),
-            matrix(log(c(mean(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]>240]),
-            var(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]>240]))),2,1)))
+             matrix(log(c(mean(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]>0]),
+             var(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<6000]))),2,1)))
 
-V_par.tr<- exp(solve(matrix(c(1,1,-1,-2),2,2),
-            matrix(log(c(mean(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240]),
-            var(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240]))),2,1)))
+# V_par.tr<- exp(solve(matrix(c(1,1,-1,-2),2,2),
+#             matrix(log(c(mean(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240]),
+#             var(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240]))),2,1)))
 
 # Check agreement betwwen hisotgram of observed and curve of gamma priors for equilibrium
 
 # Spore - equilibrium phase
-hist(S_obs[trans.rep$time.h>240], freq = F)
+hist(S_obs[trans.rep$time.h<6000], freq = F)
 
 curve(dgamma(x, S_par.eq[1], S_par.eq[2]), from = min(S_obs), to = max(S_obs), add = T)
 
 # Spore - equilibrium phase
-hist(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]>240], freq = F)
+hist(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<6000], freq = F)
 
 curve(dgamma(x,V_par.eq[1], V_par.eq[2]), 
-            from =min(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]>240]), 
-            to = max(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]>240]), add = T)
+            from =min(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<6000]), 
+            to = max(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<6000]), add = T)
 
 # Spore - transition phase
-hist(S_obs[trans.rep$time.h<240], freq = F)
+#hist(S_obs[trans.rep$time.h<240], freq = F)
 
-curve(dgamma(x, S_par.tr[1], S_par.tr[2]), from = min(S_obs), to = max(S_obs), add = T)
+#curve(dgamma(x, S_par.tr[1], S_par.tr[2]), from = min(S_obs), to = max(S_obs), add = T)
 
 # Vegetative - transition phase
-hist(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240], freq = F)
+#hist(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240], freq = F)
 
-curve(dgamma(x,V_par.tr[1], V_par.tr[2]), 
-            from = min(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240]), 
-            to = max(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240]), add = T)
+#curve(dgamma(x,V_par.tr[1], V_par.tr[2]), 
+#            from = min(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240]), 
+#            to = max(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240]), add = T)
 ```
 
 # Model
@@ -151,16 +135,8 @@ curve(dgamma(x,V_par.tr[1], V_par.tr[2]),
 # But we only get to see the noisy estimates of S_obs and T_obs
 
 mod<-"model{
-for(i in 1:19){
-V[i]~dgamma(v_alpha1,v_beta1)
-S[i]~dgamma(s_alpha1,s_beta1)
 
-# Set up observation model as acutal values plus observation error
-Sobs[i]~dnorm(S[i],tau.to)
-Tobs[i]~dnorm(V[i]+S[i],tau.so)
-}
-
-for(i in 20:n){
+for(i in 1:n){
 V[i]~dgamma(v_alpha2,v_beta2)
 S[i]~dgamma(s_alpha2,s_beta2)
 
@@ -181,8 +157,12 @@ tau.to <- pow(sig.to,-2)
 }"
 
 # Grab the data we want to feed it
-jdata <- list('n' = nrow(trans.rep), 'Sobs' = S_obs, "Tobs" = T_obs, "v_alpha1" = V_par.tr[1], 
-        "v_beta1" = V_par.tr[2], "s_alpha1" = S_par.tr[1], "s_beta1" = S_par.tr[2],"v_alpha2" = V_par.eq[1], 
+#jdata <- list('n' = nrow(trans.rep), 'Sobs' = S_obs, "Tobs" = T_obs, "v_alpha1" = V_par.tr[1], 
+#        "v_beta1" = V_par.tr[2], "s_alpha1" = S_par.tr[1], "s_beta1" = S_par.tr[2],"v_alpha2" = V_par.eq[1], 
+#        "v_beta2" = V_par.eq[2], "s_alpha2" = S_par.eq[1], "s_beta2" = S_par.eq[2])
+
+jdata <- list('n' = nrow(trans.rep), 'Sobs' = S_obs, "Tobs" = T_obs,  
+        "v_alpha2" = V_par.eq[1], 
         "v_beta2" = V_par.eq[2], "s_alpha2" = S_par.eq[1], "s_beta2" = S_par.eq[2])
 
 # Initialize the model
@@ -215,15 +195,15 @@ v.est <- f$statistics[grep("V",rownames(f$statistics)),1]
 v.lower <- f$quantiles[grep("V",rownames(f$quantiles)),1]
 v.upper <- f$quantiles[grep("V",rownames(f$quantiles)),5]
 data2 <- data.frame(time, s.est,s.lower,s.upper, v.est,v.lower,v.upper)
-write.table(data2, "data/transition.Bayes.repD.txt", sep = "\t", col.names = T, row.names = F)
+write.table(data2, "data/scout.bayes.repD.txt", sep = "\t", col.names = T, row.names = F)
 ```
 
 # Calculate means and SEMS from Bayes estimates
 ```{r}
-data.B.A <- read.table("data/transition.Bayes.repA.txt", header = TRUE)
-data.B.B <- read.table("data/transition.Bayes.repB.txt", header = TRUE)
-data.B.C <- read.table("data/transition.Bayes.repC.txt", header = TRUE)
-data.B.D <- read.table("data/transition.Bayes.repC.txt", header = TRUE)
+data.B.A <- read.table("data/scout.bayes.repA.txt", header = TRUE)
+data.B.B <- read.table("data/scout.bayes.repB.txt", header = TRUE)
+data.B.C <- read.table("data/scout.bayes.repC.txt", header = TRUE)
+data.B.D <- read.table("data/scout.bayes.repC.txt", header = TRUE)
 data.B <- data.frame(data.B.A[,c(1:2,5)], data.B.B[,c(2,5)], data.B.C[,c(2,5)], data.B.D[,c(2,5)]) 
 colnames(data.B) <- c("time", "Spore.A", "Veg.A", "Spore.B", "Veg.B", "Spore.C", "Veg.C", "Spore.D", "Veg.D")
 S.mean <- apply(data.frame(data.B$Spore.A, data.B$Spore.B, data.B$Spore.C, data.B$Spore.D), 1, mean) * 10^4
@@ -241,79 +221,32 @@ png(filename="/Users/lennonj/GitHub/SporMut/output/pop.densities.D.BayesIII.png"
      width = 1200, height = 900, res = 96*2)
 
 par(mar = c(5, 7, 5, 7))
-#https://stackoverflow.com/questions/17932915/how-to-rotate-y-axis-labels-in-twoord-plot-in-r
-combo.data <- rbind(data.all, end.data.sum)
-
-#par(bty="n") # deleting the box
-gap.plot(combo.data$time, log10(combo.data$veg), gap.axis = "x", gap=c(700, 1500), 
-        type = "p", pch = 21, col="grey80", bgcol = "grey80", bg = "grey80", 
-        xlab = "Time (d)", ylab = "Abundance (CFU/mL)",
-        ylim = c(4.5, 8.7), xlim = c(-25, 2000), cex.axis = 1.25)
-
-axis.break(1, 700, breakcol="snow", style="gap")
-axis.break(1, 700*(1+0.02), breakcol="black", style="slash")
-axis.break(3, 700*(1+0.02), breakcol="black", style="slash")
-#axis(1, at=800)
-
-gap.plot(combo.data$time,log10(combo.data$spore), gap=c(700,1500), gap.axis="x", 
-         type = "p", pch = 21, col="grey50", bgcol = "grey50", bg = "grey50", 
-         add = TRUE, cex = 1.25, lwd = 0.75)
-
-
-
-
-
-gap.plot(data.all$time,log10(data.all$veg), gap=c(700,1500), gap.axis = "x", pch = 21,
-        col="grey80", bg = "grey80", ylim= c(4.5, 8.7), cex = 1.25, 
-        xtics=c(0:700,1500:2000), xticlab=c(0:700,1500:2000), lwd = 0.75, 
-        cex.axis = 1.25, xlab = NA, ylab = NA, xlim = c(-25, 2000),
-        yaxt = "n", xaxt = "n")
-
-points(xgap, log10(data.all$spore), pch = 21, lwd = 0.75, bg = "grey50", 
-      col = "grey50", cex = 1.25)
-
-abline(v=seq(699.99,700.09,0.001), col="white")
-abline(v=seq(799.99,800.09,0.001), col="red")
-axis.break(1,2,style="slash") 
-
-
-# xgap (a, b, c) = plot things greater than a and less than b otherwise, it's in gap
-xgap <- ifelse(data.all$time > 1500, data.all$time-1295, data.all$time)
-plot(xgap, log10(data.all$veg), pch = 21, bg = "grey80", cex = 1.25, 
-     col = "grey80", lwd = 0.75, cex.axis = 1.25, xlab = NA, ylab = NA,
-     xlim = c(-25, 2000), ylim = c(4.5, 8.7), yaxt = "n", xaxt = "n")
-
-points(xgap, log10(data.all$spore), pch = 21, lwd = 0.75, bg = "grey50", 
-      col = "grey50", cex = 1.25)
-
-
-
 
 plot(data.all$time, log10(data.all$veg), pch = 21, 
      bg = "grey80", cex = 1.25, col = "grey80", lwd = 0.75, cex.axis = 1.25, 
-     xlab = NA, ylab = NA, xlim = c(-25, 700), ylim = c(4.5, 8.7), yaxt = "n", xaxt = "n")
+     xlab = NA, ylab = NA, xlim = c(-25, 300), ylim = c(5.5, 8.5), yaxt = "n", xaxt = "n")
 
 points(data.all$time, log10(data.all$spore), pch = 21, lwd = 0.75, col = "grey50", 
        bg = "grey50", cex = 1.25)
 
 box(lwd = 2)
 
-legend(350, 8.75, c("Spore", "Non-spore"), pch = 21, pt.bg = c("grey50", "grey80"), 
+legend(200, 8.5, c("Spore", "Non-spore"), pch = 21, pt.bg = c("grey50", "grey80"), 
        col = c("grey50", "grey80"), pt.cex = 1.25, pt.lwd = 0.75, bty = 'n', 
        y.intersp = 1.5, lwd = 0, x.intersp = -0.5)
 
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
-     labels = expression(10^5, 10^6, 10^7, 10^8),
-     at = c(5, 6, 7, 8))
+     labels = expression(10^5, 10^6, 10^7, 10^8, 10^9),
+     at = c(5, 6, 7, 8, 9))
 
 axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
-     at=c(5, 6, 7, 8), labels = F)
+     at=c(5, 6, 7, 8, 9), labels = F)
 
 axis(side = 1, lwd.ticks = 2, cex.axis = 1.25,
-     at = c(0, 100, 200, 300, 400, 500, 600, 700), labels = T)
+     at = c(0, 100, 200, 300, 400), labels = T)
 
 axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
-     at = c(0, 100, 200, 300, 400, 500, 600, 700), labels = F)
+     at = c(0, 100, 200, 300, 400), labels = F)
 
 mtext('Time (d)', side = 1, outer = TRUE, cex = 2, 
       line = -2, adj = 0.5)
