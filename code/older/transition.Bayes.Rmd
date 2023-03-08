@@ -12,7 +12,7 @@ geometry: margin=2.54cm
 ```{r}
 rm(list = ls())
 getwd()
-setwd("~/GitHub/SporMut")
+setwd("~/GitHub/SporeMut")
 require("bbmle")
 require("grid")
 require("png")
@@ -156,7 +156,7 @@ data2 <- data.frame(time, s.est, v.est)
 
 # Plot population densisites over time 
 ```{r}
-png(filename="~/GitHub/SporMut/figures/pop.densities.D.Bayes.png",
+png(filename="~/GitHub/SporeMut/output/pop.densities.D.Bayes.png",
      width = 1200, height = 900, res = 96*2)
 
 par(mar = c(5, 7, 5, 7))
@@ -165,7 +165,7 @@ plot(data2$time, log10(data2$v.est), pch = 21,
      bg = "grey80", cex = 1.25, col = "grey80", lwd = 0.75, cex.axis = 1.25, 
      xlab = NA, ylab = NA, xlim = c(-25, 250), ylim = c(1.5, 9), yaxt = "n", xaxt = "n")
 
-points(data2$time, log10(data2.s.est), pch = 21, lwd = 0.75, col = "grey50", 
+points(data2$time, log10(data2$s.est), pch = 21, lwd = 0.75, col = "grey50", 
       bg = "grey50", cex = 1.25)
 
 legend(145, 8.75, c("Spore", "Non-spore"), pch = 21, pt.bg = c("grey50", "grey80"), 
@@ -229,8 +229,6 @@ dev.off()
 graphics.off()
 
 # Show Plot
-img <- readPNG("~/GitHub/SporMut/figures/pop.densities.D.Bayes.png")
+img <- readPNG("~/GitHub/SporeMut/output/pop.densities.D.Bayes.png")
 grid.raster(img)
 ```
-
-
