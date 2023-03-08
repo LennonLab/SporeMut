@@ -1,0 +1,85 @@
+// Initial random seed:
+2185177340619
+
+// RunInitializeCallbacks():
+initializeMutationRate(3.2e-10);
+initializeMutationType(1, 1, "f", 0);
+initializeGenomicElementType(1, m1, 1);
+initializeGenomicElement(g1, 0, 4199999);
+initializeRecombinationRate(0);
+
+// Starting run at generation <start>:
+1 
+
+#OUT: 30 SS p1 69
+Mutations:
+Genomes:
+p1:0 A
+p1:1 A
+p1:2 A
+p1:3 A
+p1:4 A
+p1:5 A
+p1:6 A
+p1:7 A
+p1:8 A
+p1:9 A
+p1:10 A
+p1:11 A
+p1:12 A
+p1:13 A
+p1:14 A
+p1:15 A
+p1:16 A
+p1:17 A
+p1:18 A
+p1:19 A
+p1:20 A
+p1:21 A
+p1:22 A
+p1:23 A
+p1:24 A
+p1:25 A
+p1:26 A
+p1:27 A
+p1:28 A
+p1:29 A
+p1:30 A
+p1:31 A
+p1:32 A
+p1:33 A
+p1:34 A
+p1:35 A
+p1:36 A
+p1:37 A
+p1:38 A
+p1:39 A
+p1:40 A
+p1:41 A
+p1:42 A
+p1:43 A
+p1:44 A
+p1:45 A
+p1:46 A
+p1:47 A
+p1:48 A
+p1:49 A
+p1:50 A
+p1:51 A
+p1:52 A
+p1:53 A
+p1:54 A
+p1:55 A
+p1:56 A
+p1:57 A
+p1:58 A
+p1:59 A
+p1:60 A
+p1:61 A
+p1:62 A
+p1:63 A
+p1:64 A
+p1:65 A
+p1:66 A
+p1:67 A
+p1:68 A
