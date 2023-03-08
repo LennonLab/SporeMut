@@ -12,10 +12,11 @@ geometry: margin=2.54cm
 ```{r}
 rm(list = ls())
 getwd()
-setwd("~/GitHub/SporMut")
+setwd("~/GitHub/SporeMut")
 require("bbmle")
 require("grid")
 require("png")
+# I installed jags first from here: https://sourceforge.net/projects/mcmc-jags/
 library("rjags") # external program for mcmc
 ```
 
@@ -75,7 +76,7 @@ S_obs <- trans.D$spo.ab
 # where a is shape parameter and b is an inverse scale parameter of gamma distribution
 # Taking the log of both sides of each equation, we get a system of linear equations
 # Let's do this for S_obs for two parts of the time series:
-# equilbirum phase (S_par.eq) after 240 hrs and transition phase (S_par.tr) 0-240 hrs.  
+# Equilibrium phase (S_par.eq) after 240 hrs and transition phase (S_par.tr) 0-240 hrs.  
 
 S_par.eq <- exp(solve(matrix(c(1,1,-1,-2),2,2), matrix(log(c(mean(S_obs[trans.D$time.h>240]),
             var(S_obs[trans.D$time.h>240]))),2,1)))
@@ -94,7 +95,7 @@ V_par.tr<- exp(solve(matrix(c(1,1,-1,-2),2,2),
             matrix(log(c(mean(V_est[trans.D$time.h[which((T_obs-S_obs)>0)]<240]),
             var(V_est[trans.D$time.h[which((T_obs-S_obs)>0)]<240]))),2,1)))
 
-# Check agreement betwwen hisotgram of observed and curve of gamma priors for equilibrium
+# Check agreement between histogram of observed and curve of gamma priors for equilibrium
 
 # Spore - equilibrium phase
 hist(S_obs[trans.D$time.h>240], freq = F)
@@ -123,7 +124,7 @@ curve(dgamma(x,V_par.tr[1], V_par.tr[2]),
 
 # Model
 ```{r}
-# Now, set up a model that mimics the experiment where we are intersted in V and S
+# Now, set up a model that mimics the experiment where we are interested in V and S
 # But we only get to see the noisy estimates of S_obs and T_obs
 
 mod<-"model{
@@ -164,10 +165,10 @@ jdata <- list('n' = nrow(trans.D), 'Sobs' = S_obs, "Tobs" = T_obs, "v_alpha1" = 
 # Initialize the model
 tot.mod <- jags.model(textConnection(mod), data = jdata, n.chains = 5)
 
-# Burn-in: autoupdating until model converges
+# Burn-in: auto-updating until model converges
 update(tot.mod, 1000)
 
-# Get samples from it for what we are intested: V, S and the obs errors
+# Get samples from it for what we are interested: V, S and the obs errors
 # Creates output with n.iter samples per chain
 fit.mod <- coda.samples(tot.mod, c('V','S','sig.to','sig.so'), n.iter = 5000)
 
@@ -195,7 +196,7 @@ data2 <- data.frame(time, s.est,s.lower,s.upper, v.est,v.lower,v.upper)
 
 # Plot population densisites over time 
 ```{r}
-png(filename="~/GitHub/SporMut/figures/pop.densities.D.BayesIII.png",
+png(filename="~/GitHub/SporeMut/output/pop.densities.D.BayesIII.png",
      width = 1200, height = 900, res = 96*2)
 
 par(mar = c(5, 7, 5, 7))
@@ -247,7 +248,7 @@ dev.off()
 graphics.off()
  
 # Show Plot
-img <- readPNG("GitHub/SporMut/figures/pop.densities.D.BayesIII.png")
+img <- readPNG("GitHub/SporeMut/output/pop.densities.D.BayesIII.png")
 grid.raster(img)
 
 dev.off()
