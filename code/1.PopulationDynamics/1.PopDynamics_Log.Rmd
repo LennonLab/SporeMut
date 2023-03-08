@@ -1,0 +1,348 @@
+---
+title: "Sporulation dynamics in response to extreme energy limitation"
+author: "Jay T. Lennon"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+header-includes:
+  - \usepackage{array}
+output: pdf_document
+geometry: margin=2.54cm
+---
+  
+# Set working directory and load packages
+```{r}
+rm(list = ls())
+getwd()
+setwd("~/GitHub/SporeMut")
+require("bbmle")
+require("grid")
+require("png")
+# I installed jags first from here: https://sourceforge.net/projects/mcmc-jags/
+library("rjags") # external program for mcmc
+library("rjags") # external program for mcmc
+sem <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
+```
+
+# Load data
+```{r}
+data <- read.table("data/1.PopDynamics/spore.transition.txt", header = TRUE)
+head(data)
+colnames(data)[1] <- "time.h"
+time.d <- data$time/24
+data <- data.frame(data[1],time.d,data[2:6])
+
+# there's a break in sampling from 13292 - 14108 hours (554 -588 days); corresponds with technician recovery
+
+# calculate total CFUs using dilution 
+# multiply be 10 to go from 100 ul dilution to 1 mL
+
+# put in same scale but keep to reasonable number to not put too much pressure on the prior
+# tot.ab <- data$total * 10^(data$total_dil) *10 # original
+tot.ab <- data$total * 10^(data$total_dil+1) / 10^(4)
+
+# calculate spore CFUs using dilution (per 1000 uL dilution)
+# multiply be 10 to go from 100 ul dilution to 1 mL
+# spo.ab <- data$spore * 10^(data$spor_dil) * 10
+spo.ab <- data$spore * 10^(data$spor_dil+1)/ 10^(4)
+
+# calculate veg CFUs using dilution
+veg.ab <- tot.ab - spo.ab
+
+# calculate proportion of vegetative CFUs
+prop.veg <- 1 - (spo.ab / tot.ab)
+
+# calculate proportion of spore CFUs
+prop.spor <- 1 - prop.veg
+
+# make new data frame
+trans <- data.frame(data, tot.ab, veg.ab, spo.ab, prop.veg, prop.spor)
+
+trans.A <- trans[ which(trans$rep == 'A'), ]
+trans.A.neg <- sum(trans.A$veg.ab <0) # 8 negative values
+trans.B <- trans[ which(trans$rep == 'B'), ]
+trans.B.neg <- sum(trans.B$veg.ab <0) # 9 negative values
+trans.C <- trans[ which(trans$rep == 'C'), ]
+trans.C.neg <- sum(trans.C$veg.ab <0) # 22 negative values
+trans.D <- trans[ which(trans$rep == 'D'), ]
+trans.D.neg <- sum(trans.D$veg.ab <0) # 26 negative values
+# plot(trans.D$time.h,trans.D$total)
+
+
+# Data from end of LTDE
+end.data <- read.table("data/1.PopDynamics/spore.transition.ltde.txt", header = TRUE)
+head(end.data)
+time.end.d <- end.data$time.h/24
+end.data <- data.frame(end.data[1],time.end.d,end.data[2:6])
+end.tot.ab <- end.data$total * 10^(end.data$total_dil) * 10
+end.spo.ab <- end.data$spore * 10^(end.data$spor_dil) * 10
+end.veg.ab <- end.tot.ab - end.spo.ab
+end.prop.veg <- 1 - (end.spo.ab / end.tot.ab)
+end.prop.spor <- 1 - end.prop.veg
+end.data.sum <-data.frame(end.data$time.end.d, end.spo.ab, end.veg.ab)
+colnames(end.data.sum) <- c("time", "spore", "veg")
+```
+
+# Construct gamma priors and get associated parameters 
+```{r}
+# Pick a replication population (A - D)
+# This needs to be rerun for each population when data is updated
+# Ouput file must be changed, too
+# See: write.table(data2, "data/transition.Bayes.repD.txt...)
+
+trans.rep <- trans.A
+
+# Observed total (T) and spore (S) abundances from CFU counts
+T_obs <- trans.rep$tot.ab
+S_obs <- trans.rep$spo.ab
+
+# Get informative priors for S and vegetative cells (V) based on observed values
+# Start by putting a gamma prior on S and V. 
+# We will get parameters for those distributions using the method of moments:
+# mean(x) = a/b; var(x) = a/b^2
+# where a is shape parameter and b is an inverse scale parameter of gamma distribution
+# Taking the log of both sides of each equation, we get a system of linear equations
+# Let's do this for S_obs for two parts of the time series:
+# Equilibrium phase (S_par.eq) after 240 hrs and transition phase (S_par.tr) 0-240 hrs.  
+
+S_par.eq <- exp(solve(matrix(c(1,1,-1,-2),2,2), matrix(log(c(mean(S_obs[trans.rep$time.h>240]),
+            var(S_obs[trans.rep$time.h>240]))),2,1)))
+
+S_par.tr <- exp(solve(matrix(c(1,1,-1,-2),2,2), matrix(log(c(mean(S_obs[trans.rep$time.h<240]),
+            var(S_obs[trans.rep$time.h<240]))),2,1)))
+
+# Now for V_est (our ugly initial estimate of V where we ignore negatives)
+V_est <- (T_obs-S_obs)[which((T_obs-S_obs)>0)]
+
+V_par.eq <- exp(solve(matrix(c(1,1,-1,-2),2,2),
+            matrix(log(c(mean(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]>240]),
+            var(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]>240]))),2,1)))
+
+V_par.tr<- exp(solve(matrix(c(1,1,-1,-2),2,2),
+            matrix(log(c(mean(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240]),
+            var(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240]))),2,1)))
+
+# Check agreement between histogram of observed and curve of gamma priors for equilibrium
+
+# Spore - equilibrium phase
+hist(S_obs[trans.rep$time.h>240], freq = F)
+
+curve(dgamma(x, S_par.eq[1], S_par.eq[2]), from = min(S_obs), to = max(S_obs), add = T)
+
+# Spore - equilibrium phase
+hist(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]>240], freq = F)
+
+curve(dgamma(x,V_par.eq[1], V_par.eq[2]), 
+            from =min(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]>240]), 
+            to = max(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]>240]), add = T)
+
+# Spore - transition phase
+hist(S_obs[trans.rep$time.h<240], freq = F)
+
+curve(dgamma(x, S_par.tr[1], S_par.tr[2]), from = min(S_obs), to = max(S_obs), add = T)
+
+# Vegetative - transition phase
+hist(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240], freq = F)
+
+curve(dgamma(x,V_par.tr[1], V_par.tr[2]), 
+            from = min(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240]), 
+            to = max(V_est[trans.rep$time.h[which((T_obs-S_obs)>0)]<240]), add = T)
+```
+
+# Model
+```{r}
+# Now, set up a model that mimics the experiment where we are interested in V and S
+# But we only get to see the noisy estimates of S_obs and T_obs
+
+mod<-"model{
+for(i in 1:19){
+V[i]~dgamma(v_alpha1,v_beta1)
+S[i]~dgamma(s_alpha1,s_beta1)
+
+# Set up observation model as acutal values plus observation error
+Sobs[i]~dnorm(S[i],tau.to)
+Tobs[i]~dnorm(V[i]+S[i],tau.so)
+}
+
+for(i in 20:n){
+V[i]~dgamma(v_alpha2,v_beta2)
+S[i]~dgamma(s_alpha2,s_beta2)
+
+# Set up observation model as acutal values plus observation error
+Sobs[i]~dnorm(S[i],tau.to)
+Tobs[i]~dnorm(V[i]+S[i],tau.so)
+}
+
+# Set some priors (what decisions are made here?)
+sig.v~dunif(0,1000)
+tau.v <- pow(sig.v,-2)
+sig.s~dunif(0,1000)
+tau.s <- pow(sig.v,-2)
+sig.so~dunif(0,1000)
+sig.to~dunif(0,1000)
+tau.so <- pow(sig.so,-2)
+tau.to <- pow(sig.to,-2)
+}"
+
+# Grab the data we want to feed it
+jdata <- list('n' = nrow(trans.rep), 'Sobs' = S_obs, "Tobs" = T_obs, "v_alpha1" = V_par.tr[1], 
+        "v_beta1" = V_par.tr[2], "s_alpha1" = S_par.tr[1], "s_beta1" = S_par.tr[2],"v_alpha2" = V_par.eq[1], 
+        "v_beta2" = V_par.eq[2], "s_alpha2" = S_par.eq[1], "s_beta2" = S_par.eq[2])
+
+# Initialize the model
+tot.mod <- jags.model(textConnection(mod), data = jdata, n.chains = 5)
+
+# Burn-in: autoupdating until model converges
+update(tot.mod, 1000)
+
+# Get samples from it for what we are interested: V, S and the obs errors
+# Creates output with n.iter samples per chain
+fit.mod <- coda.samples(tot.mod, c('V','S','sig.to','sig.so'), n.iter = 5000)
+
+# Get summary of our 5 chains (i.e., number of Markov chains)
+f <- summary(fit.mod)
+
+# Look at S values
+f$statistics[grep("S",rownames(f$statistics)),]
+f$quantiles[grep("S",rownames(f$quantiles)),]
+
+# Look at V values
+f$statistics[grep("V",rownames(f$statistics)),]
+f$quantiles[grep("V",rownames(f$quantiles)),]
+
+time <- trans.rep$time.d
+s.est <- f$statistics[grep("S",rownames(f$statistics)),1]
+v.est <- f$statistics[grep("V",rownames(f$statistics)),1]
+s.lower <- f$quantiles[grep("S",rownames(f$quantiles)),1]
+s.upper <- f$quantiles[grep("S",rownames(f$quantiles)),5]
+v.est <- f$statistics[grep("V",rownames(f$statistics)),1]
+v.lower <- f$quantiles[grep("V",rownames(f$quantiles)),1]
+v.upper <- f$quantiles[grep("V",rownames(f$quantiles)),5]
+data2 <- data.frame(time, s.est,s.lower,s.upper, v.est,v.lower,v.upper)
+#write.table(data2, "data/transition.Bayes.repD.txt", sep = "\t", col.names = T, row.names = F)
+write.table(data2, "output/1.PopDynamics/transition.Bayes.repA.txt", sep = "\t", col.names = T, row.names = F)
+```
+
+# Calculate means and SEMS from Bayes estimates
+```{r}
+data.B.A <- read.table("output/1.PopDynamics/transition.Bayes.repA.txt", header = TRUE)
+data.B.B <- read.table("output/1.PopDynamics/transition.Bayes.repB.txt", header = TRUE)
+data.B.C <- read.table("output/1.PopDynamics/transition.Bayes.repC.txt", header = TRUE)
+data.B.D <- read.table("output/1.PopDynamics/transition.Bayes.repC.txt", header = TRUE)
+data.B <- data.frame(data.B.A[,c(1:2,5)], data.B.B[,c(2,5)], data.B.C[,c(2,5)], data.B.D[,c(2,5)]) 
+colnames(data.B) <- c("time", "Spore.A", "Veg.A", "Spore.B", "Veg.B", "Spore.C", "Veg.C", "Spore.D", "Veg.D")
+S.mean <- apply(data.frame(data.B$Spore.A, data.B$Spore.B, data.B$Spore.C, data.B$Spore.D), 1, mean) * 10^4
+data.all <- rbind(data.B.A[,c(1:2,5)], data.B.B[,c(1:2,5)], data.B.A[,c(1:2,5)], data.B.A[,c(1:2,5)])
+data.all <- data.frame(data.all[,1], (10^4 * data.all[,2:3]))
+colnames(data.all) <- c("time", "spore", "veg")
+
+S.sem <- apply(data.frame(data.B$Spore.A, data.B$Spore.B, data.B$Spore.C, data.B$Spore.D), 1, sem) * 10^4
+V.mean <- apply(data.frame(data.B$Veg.A, data.B$Veg.B, data.B$Veg.C, data.B$Veg.D), 1, mean) * 10^4
+V.sem <- apply(data.frame(data.B$Veg.A, data.B$Veg.B, data.B$Veg.C, data.B$Veg.D), 1, sem) * 10^4
+```
+
+# Plot population densities over time 
+```{r}
+png(filename="/Users/lennonj/GitHub/SporeMut/output/1.PopDynamics/1.PopDynamics_Log.png",
+     width = 1200, height = 900, res = 96*2)
+
+par(mar = c(5, 7, 5, 7))
+
+plot(log10(data2$time), log10(data2$v.est*10^4), pch = 21, 
+     bg = "grey80", cex = 1.25, col = "grey80", lwd = 0.75, cex.axis = 1.25,
+     xlab = NA, ylab = NA, xlim = c(-0.5, 3.2), ylim = c(4, 9), yaxt = "n", xaxt = "n")
+
+points(log10(data2$time), log10(data2$s.est*10^4), pch = 21, lwd = 0.75, col = "grey50", 
+      bg = "grey50", cex = 1.25)
+
+legend(50, 9, c("Spore", "Non-spore"), pch = 21, pt.bg = c("grey50", "grey80"), 
+       col = c("grey50", "grey80"), pt.cex = 1.25, pt.lwd = 0.75, bty = 'n', 
+       y.intersp = 0.80, lwd = 0, x.intersp = -0.5)
+
+box(lwd = 2)
+
+
+#legend(350, 8.75, c("Spore", "Non-spore"), pch = 21, pt.bg = c("grey50", "grey80"), 
+#       col = c("grey50", "grey80"), pt.cex = 1.25, pt.lwd = 0.75, bty = 'n', 
+#       y.intersp = 1.5, lwd = 0, x.intersp = -0.5)
+
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
+     labels = expression(10^4, 10^5, 10^6, 10^7, 10^8, 10^9),
+     at = c(4, 5, 6, 7, 8, 9))
+
+axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
+     at=c(4, 5, 6, 7, 8, 9), labels = F)
+
+#axis(side = 1, lwd.ticks = 2, cex.axis = 1.25,
+#     at = c(0, 200, 400, 600, 800), labels = T)
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1.25, las = 1,
+     labels = expression(1, 10, 100, 1000),
+     at = c(0, 1, 2, 3))
+
+#axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
+#     at = c(0, 200, 400, 600, 800), labels = F)
+
+axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
+     at = c(0, 1, 2, 3), labels = F)
+
+mtext('Time (d)', side = 1, outer = TRUE, cex = 2, 
+      line = -2, adj = 0.5)
+
+mtext(expression('Bacteria (CFU ml'^-1*')'), side = 2, outer = TRUE, cex = 2, 
+      line = -3.5, adj = 0.5)
+
+# Fit non-spore abundance with sigmoidal function using MLE
+# Initial parameters
+#A = 6 # Maximum 
+#B = 6 # Minimum
+#M = 5 # Midpoint
+#W = -21 # Slope
+#Z = 2 # Error
+
+A = 5.5 # Minimum (log10)
+B = 7.9 # Maximum (log10)
+M = 0.7 # Midpoint (log10)
+W = 0.16 # Slope
+Z = 0.2 # Error
+
+# Function
+fit2 <- mle2(log10(veg) ~ dnorm(mean = b + (a - b) / (1 + exp((m - log10(time)) / w)), sd = z),
+            start = list(a = A, b = B, m = M, w = W, z = Z), data = data.all) 
+
+#curve(coef(fit2)[[2]] + (coef(fit2)[[1]] - coef(fit2)[[2]]) / 
+#        (1 + exp((coef(fit2)[[3]] - x) / coef(fit2)[[4]])), 
+#      from = -6, to = 900, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
+
+curve(coef(fit2)[[2]] + (coef(fit2)[[1]] - coef(fit2)[[2]]) / 
+        (1 + exp((coef(fit2)[[3]] - x) / coef(fit2)[[4]])), 
+      from = 0, to = 3, add = TRUE, lty = 2, lwd = 2.5, col = "red") 
+
+# Fit spore abundance with sigmoidal function using MLE
+# Initial parameters
+#A = 6 # Maximum 
+#B = 6 # Minimum
+#M = 5 # Midpoint
+#W = 21 # Slope
+#Z = 2 # Error
+
+A = 6 # Minimum (log10)
+B = 6 # Maximum (log10)
+M = 0.7 # Midpoint (log10)
+W = 0.16 # Slope
+Z = 0.2 # Error
+
+# Function
+fit3 <- mle2(log10(spore) ~ dnorm(mean = b + (a - b) / (1 + exp((m - log10(time)) / w)), sd = z),
+            start = list(a = A, b = B, m = M, w = W, z = Z), data = data.all) 
+
+curve(coef(fit3)[[2]] + (coef(fit3)[[1]] - coef(fit3)[[2]]) / 
+        (1 + exp((coef(fit3)[[3]] - x) / coef(fit3)[[4]])), 
+      from = 0, to = 3, add = TRUE, lty = 2, lwd = 2.5, col = "red") 
+
+# Close Plot Device
+dev.off()
+graphics.off()
+ 
+# Show Plot
+img <- readPNG("/Users/lennonj/GitHub/SporeMut/output/1.PopDynamics/1.PopDynamics_Log.png")
+grid.raster(img)
+```

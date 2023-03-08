@@ -1,0 +1,107 @@
+---
+title: "Sporulation dynamics in response to extreme energy limitation"
+author: "Jay T. Lennon"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+header-includes:
+  - \usepackage{array}
+output: pdf_document
+geometry: margin=2.54cm
+---
+
+
+```{r}
+# Set working directory and load packages
+rm(list = ls())
+getwd()
+setwd("~/GitHub/SporeMut")
+
+require("ggplot2")
+require("cowplot")
+require("reshape2")
+require("ggpubr")
+require("dplyr")
+require("scales")
+require("grid")
+require("png")
+sem <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
+```
+
+
+# Load data
+```{r}
+BacillusBiofilm <- read.table("data/3.Biofilm/Biofilm_06_16_20.txt", sep= "\t", header = FALSE)
+```
+
+#Format data by plate
+```{r}
+###100 Lines
+Plate1BS<- BacillusBiofilm[which(BacillusBiofilm$V1=='plate1'),] 
+Plate2BS<- BacillusBiofilm[which(BacillusBiofilm$V1=='plate2'),] 
+
+names(Plate1BS)<- as.matrix(Plate1BS[1,])
+Plate1BS<- Plate1BS[-1,]
+Plate1BS[]<-lapply(Plate1BS,function(x) type.convert(as.character(x)))
+Plate1BS
+names(Plate2BS)<- as.matrix(Plate2BS[1,])
+Plate2BS<- Plate2BS[-1,]
+Plate2BS[]<-lapply(Plate2BS,function(x) type.convert(as.character(x)))
+Plate2BS
+
+Plate1BSMelt<-melt(Plate1BS,id=c("plate1", "Replicate"))
+names(Plate1BSMelt)<-c("Plate","Replicate","Sample","OD550")
+Plate1BSMelt
+
+Plate2BSMelt<-melt(Plate2BS,id=c("plate2", "Replicate"))
+names(Plate2BSMelt)<-c("Plate","Replicate","Sample","OD550")
+Plate2BSMelt
+```
+
+#Identify Samples
+```{r}
+#NonSpore <- BacillusCurveMelt$Sample %in% c("M4", "M13", "M17" , "M19", "M21", "M41", "M54", "M79")
+#Spore<-BacillusCurveMelt$Sample %in% c( "M23", "M26", "S1", "S6", "S11", "S22", "S51", "S95")
+
+Blank <- Plate1BSMelt$Sample %in% c("Blank1")
+Spore<-Plate1BSMelt$Sample %in% c( "M23", "M26")
+Vegetative<-Plate1BSMelt$Sample %in% c("M4", "M13", "M17" , "M19", "M21", "M41", "M54", "M79")
+Ancestor<-Plate1BSMelt$Sample %in% c( "Ancestor")
+sinR<-Plate1BSMelt$Sample %in% c("M17" , "M19", "M21", "M41", "M54")
+ywcC<-Plate1BSMelt$Sample %in% c("M4", "M13", "M79")
+
+Plate1BSMelt$Treatment[Blank] <- "Blank"
+Plate1BSMelt$Treatment[Spore] <- "Spore"
+Plate1BSMelt$Treatment[Vegetative] <- "Vegetative"
+Plate1BSMelt$Treatment[Ancestor] <- "Ancestor"
+Plate1BSMelt$BiofilmMut[Ancestor] <- "Ancestor"
+Plate1BSMelt$BiofilmMut[sinR] <- "Vegetative:sinR"
+Plate1BSMelt$BiofilmMut[ywcC] <- "Vegetative:ywcC/slrR"
+Plate1BSMelt$BiofilmMut[Spore] <- "Spore"
+Plate1BSMelt$BiofilmMut[Blank] <- "Blank"
+
+Plate1BSMelt
+
+Blank <- Plate2BSMelt$Sample %in% c("Blank1", "Blank2", "Blank3", "Blank4", "Blank5", "Blank6")
+Spore<-Plate2BSMelt$Sample %in% c( "S1", "S6","S22","S52","S95")
+
+Plate2BSMelt$Treatment[Blank] <- "Blank"
+Plate2BSMelt$Treatment[Spore] <- "Spore"
+Plate2BSMelt$BiofilmMut[Blank] <- "Blank"
+Plate2BSMelt$BiofilmMut[Spore] <- "Spore"
+
+Plate2BSMelt
+```
+
+# Correct OD for Blank
+```{r}
+Plate1BSBlankOnly<- Plate10Melt[which(Plate1BSMelt$Treatment=='Blank'),] 
+Plate2BSBlankOnly<- Plate11Melt[which(Plate2BSMelt$Treatment=='Blank'),] 
+
+Plate1BSMelt$BlankAvg<-median(Plate1BSBlankOnly$OD550)
+Plate2BSMelt$BlankAvg<-median(Plate2BSBlankOnly$OD550)
+
+Plate1BSMelt$OD550_Corrected<-Plate1BSMelt$OD550-Plate1BSMelt$BlankAvg
+Plate2BSMelt$OD550_Corrected<-Plate2BSMelt$OD550-Plate2BSMelt$BlankAvg
+
+Plate1BSMelt$OD550_Corrected[Plate1BSMelt$OD550_Corrected<=0] <- 0.00001
+Plate2BSMelt$OD550_Corrected[Plate2BSMelt$OD550_Corrected<=0] <- 0.00001
+```
