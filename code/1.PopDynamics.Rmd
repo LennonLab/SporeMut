@@ -24,7 +24,7 @@ sem <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
 
 # Load data
 ```{r}
-data <- read.table("data/spore.transition.txt", header = TRUE)
+data <- read.table("data/1.PopDynamics/spore.transition.txt", header = TRUE)
 head(data)
 colnames(data)[1] <- "time.h"
 time.d <- data$time/24
@@ -68,7 +68,7 @@ trans.D.neg <- sum(trans.D$veg.ab <0) # 26 negative values
 
 
 # Data from end of LTDE
-end.data <- read.table("data/spore.transition.ltde.txt", header = TRUE)
+end.data <- read.table("data/1.PopDynamics/spore.transition.ltde.txt", header = TRUE)
 head(end.data)
 time.end.d <- end.data$time.h/24
 end.data <- data.frame(end.data[1],time.end.d,end.data[2:6])
@@ -88,7 +88,7 @@ colnames(end.data.sum) <- c("time", "spore", "veg")
 # Ouput file must be changed, too
 # See: write.table(data2, "data/transition.Bayes.repD.txt...)
 
-trans.rep <- trans.D
+trans.rep <- trans.A
 
 # Observed total (T) and spore (S) abundances from CFU counts
 T_obs <- trans.rep$tot.ab
@@ -96,12 +96,12 @@ S_obs <- trans.rep$spo.ab
 
 # Get informative priors for S and vegetative cells (V) based on observed values
 # Start by putting a gamma prior on S and V. 
-# We wil get parameters for those distributions using the method of moments:
+# We will get parameters for those distributions using the method of moments:
 # mean(x) = a/b; var(x) = a/b^2
 # where a is shape parameter and b is an inverse scale parameter of gamma distribution
 # Taking the log of both sides of each equation, we get a system of linear equations
 # Let's do this for S_obs for two parts of the time series:
-# equilbirum phase (S_par.eq) after 240 hrs and transition phase (S_par.tr) 0-240 hrs.  
+# Equilibrium phase (S_par.eq) after 240 hrs and transition phase (S_par.tr) 0-240 hrs.  
 
 S_par.eq <- exp(solve(matrix(c(1,1,-1,-2),2,2), matrix(log(c(mean(S_obs[trans.rep$time.h>240]),
             var(S_obs[trans.rep$time.h>240]))),2,1)))
@@ -193,7 +193,7 @@ tot.mod <- jags.model(textConnection(mod), data = jdata, n.chains = 5)
 # Burn-in: autoupdating until model converges
 update(tot.mod, 1000)
 
-# Get samples from it for what we are intested: V, S and the obs errors
+# Get samples from it for what we are interested: V, S and the obs errors
 # Creates output with n.iter samples per chain
 fit.mod <- coda.samples(tot.mod, c('V','S','sig.to','sig.so'), n.iter = 5000)
 
@@ -217,15 +217,16 @@ v.est <- f$statistics[grep("V",rownames(f$statistics)),1]
 v.lower <- f$quantiles[grep("V",rownames(f$quantiles)),1]
 v.upper <- f$quantiles[grep("V",rownames(f$quantiles)),5]
 data2 <- data.frame(time, s.est,s.lower,s.upper, v.est,v.lower,v.upper)
-write.table(data2, "data/transition.Bayes.repD.txt", sep = "\t", col.names = T, row.names = F)
+#write.table(data2, "data/transition.Bayes.repD.txt", sep = "\t", col.names = T, row.names = F)
+write.table(data2, "output/1.PopDynamics/transition.Bayes.repA.txt", sep = "\t", col.names = T, row.names = F)
 ```
 
 # Calculate means and SEMS from Bayes estimates
 ```{r}
-data.B.A <- read.table("data/transition.Bayes.repA.txt", header = TRUE)
-data.B.B <- read.table("data/transition.Bayes.repB.txt", header = TRUE)
-data.B.C <- read.table("data/transition.Bayes.repC.txt", header = TRUE)
-data.B.D <- read.table("data/transition.Bayes.repC.txt", header = TRUE)
+data.B.A <- read.table("output/1.PopDynamics/transition.Bayes.repA.txt", header = TRUE)
+data.B.B <- read.table("output/1.PopDynamics/transition.Bayes.repB.txt", header = TRUE)
+data.B.C <- read.table("output/1.PopDynamics/transition.Bayes.repC.txt", header = TRUE)
+data.B.D <- read.table("output/1.PopDynamics/transition.Bayes.repC.txt", header = TRUE)
 data.B <- data.frame(data.B.A[,c(1:2,5)], data.B.B[,c(2,5)], data.B.C[,c(2,5)], data.B.D[,c(2,5)]) 
 colnames(data.B) <- c("time", "Spore.A", "Veg.A", "Spore.B", "Veg.B", "Spore.C", "Veg.C", "Spore.D", "Veg.D")
 S.mean <- apply(data.frame(data.B$Spore.A, data.B$Spore.B, data.B$Spore.C, data.B$Spore.D), 1, mean) * 10^4
@@ -240,7 +241,7 @@ V.sem <- apply(data.frame(data.B$Veg.A, data.B$Veg.B, data.B$Veg.C, data.B$Veg.D
 
 # Plot population densities over time 
 ```{r}
-png(filename="/Users/lennonj/GitHub/SporeMut/output/pop.densities.D.BayesV.png",
+png(filename="/Users/lennonj/GitHub/SporeMut/output/1.PopDynamics/1.PopDynamics.png",
      width = 1200, height = 900, res = 96*2)
 
 par(mar = c(5, 7, 5, 7))
@@ -319,6 +320,6 @@ dev.off()
 graphics.off()
  
 # Show Plot
-img <- readPNG("/Users/lennonj/GitHub/SporeMut/output/pop.densities.D.BayesV.png")
+img <- readPNG("/Users/lennonj/GitHub/SporeMut/output/1.PopDynamics/1.PopDynamics.png")
 grid.raster(img)
 ```
