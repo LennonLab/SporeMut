@@ -30,30 +30,30 @@ colnames(data)[1] <- "time.h"
 time.d <- data$time/24
 data <- data.frame(data[1],time.d,data[2:6])
 
-# there's a break in sampling from 13292 - 14108 hours (554 -588 days); corresponds with technician recovery
+# There's a break in sampling from 13292 - 14108 hours (554 -588 days); corresponds with technician recovery
 
-# calculate total CFUs using dilution 
-# multiply be 10 to go from 100 ul dilution to 1 mL
+# Calculate total CFUs using dilution 
+# Multiply be 10 to go from 100 uL dilution to 1 mL
 
-# put in same scale but keep to reasonable number to not put too much pressure on the prior
+# Put in same scale but keep to reasonable number to not put too much pressure on the prior
 # tot.ab <- data$total * 10^(data$total_dil) *10 # original
 tot.ab <- data$total * 10^(data$total_dil+1) / 10^(4)
 
-# calculate spore CFUs using dilution (per 1000 uL dilution)
-# multiply be 10 to go from 100 ul dilution to 1 mL
+# Calculate spore CFUs using dilution (per 1000 uL dilution)
+# Multiply be 10 to go from 100 ul dilution to 1 mL
 # spo.ab <- data$spore * 10^(data$spor_dil) * 10
 spo.ab <- data$spore * 10^(data$spor_dil+1)/ 10^(4)
 
-# calculate veg CFUs using dilution
+# Calculate veg CFUs using dilution
 veg.ab <- tot.ab - spo.ab
 
-# calculate proportion of vegetative CFUs
+# Calculate proportion of vegetative CFUs
 prop.veg <- 1 - (spo.ab / tot.ab)
 
-# calculate proportion of spore CFUs
+# Calculate proportion of spore CFUs
 prop.spor <- 1 - prop.veg
 
-# make new data frame
+# Make new data frame
 trans <- data.frame(data, tot.ab, veg.ab, spo.ab, prop.veg, prop.spor)
 
 trans.A <- trans[ which(trans$rep == 'A'), ]
@@ -85,7 +85,7 @@ colnames(end.data.sum) <- c("time", "spore", "veg")
 ```{r}
 # Pick a replication population (A - D)
 # This needs to be rerun for each population when data is updated
-# Ouput file must be changed, too
+# Output file must be changed, too
 # See: write.table(data2, "data/transition.Bayes.repD.txt...)
 
 trans.rep <- trans.A
@@ -100,7 +100,7 @@ S_obs <- trans.rep$spo.ab
 # mean(x) = a/b; var(x) = a/b^2
 # where a is shape parameter and b is an inverse scale parameter of gamma distribution
 # Taking the log of both sides of each equation, we get a system of linear equations
-# Let's do this for S_obs for two parts of the time series:
+# Let us do this for S_obs for two parts of the time series:
 # Equilibrium phase (S_par.eq) after 240 hrs and transition phase (S_par.tr) 0-240 hrs.  
 
 S_par.eq <- exp(solve(matrix(c(1,1,-1,-2),2,2), matrix(log(c(mean(S_obs[trans.rep$time.h>240]),
@@ -190,7 +190,7 @@ jdata <- list('n' = nrow(trans.rep), 'Sobs' = S_obs, "Tobs" = T_obs, "v_alpha1" 
 # Initialize the model
 tot.mod <- jags.model(textConnection(mod), data = jdata, n.chains = 5)
 
-# Burn-in: autoupdating until model converges
+# Burn-in: auto-updating until model converges
 update(tot.mod, 1000)
 
 # Get samples from it for what we are interested: V, S and the obs errors
