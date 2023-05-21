@@ -1,0 +1,339 @@
+---
+title: "Sporulation dynamics in response to extreme energy limitation"
+author: "Jay T. Lennon"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+header-includes:
+  - \usepackage{array}
+output: pdf_document
+geometry: margin=2.54cm
+---
+
+
+```{r}
+# Set working directory and load packages
+rm(list = ls())
+getwd()
+setwd("~/GitHub/SporeMut")
+
+#require("ggplot2")
+#require("cowplot")
+require("reshape2")
+#require("ggpubr")
+require("dplyr")
+#require("scales")
+require("grid")
+require("png")
+sem <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
+LL.95 <- function(x) t.test(x)$conf.int[1]
+UL.95 <- function(x) t.test(x)$conf.int[2]
+```
+
+# Load data
+```{r}
+bfilm <- read.table("data/3.Biofilm/Biofilm_06_16_20.txt", sep= "\t", header = FALSE)
+```
+
+# Format data by plate
+```{r}
+# 100 Lines
+Plate1BS<- bfilm[which(bfilm$V1=='plate1'),] 
+Plate2BS<- bfilm[which(bfilm$V1=='plate2'),] 
+
+names(Plate1BS) <- as.matrix(Plate1BS[1,])
+Plate1BS<- Plate1BS[-1,]
+Plate1BS[]<-lapply(Plate1BS,function(x) type.convert(as.character(x)))
+Plate1BS
+names(Plate2BS)<- as.matrix(Plate2BS[1,])
+Plate2BS<- Plate2BS[-1,]
+Plate2BS[]<-lapply(Plate2BS,function(x) type.convert(as.character(x)))
+Plate2BS
+
+Plate1BSMelt <- melt(Plate1BS,id=c("plate1", "Replicate"))
+names(Plate1BSMelt)<-c("Plate","Replicate","Sample","OD550")
+Plate1BSMelt
+
+Plate2BSMelt<-melt(Plate2BS,id=c("plate2", "Replicate"))
+names(Plate2BSMelt)<-c("Plate","Replicate","Sample","OD550")
+Plate2BSMelt
+```
+
+# Identify Samples
+```{r}
+#NonSpore <- BacillusCurveMelt$Sample %in% c("M4", "M13", "M17" , "M19", "M21", "M41", "M54", "M79")
+#Spore<-BacillusCurveMelt$Sample %in% c( "M23", "M26", "S1", "S6", "S11", "S22", "S51", "S95")
+
+blank <- Plate1BSMelt$Sample %in% c("Blank1")
+spore <- Plate1BSMelt$Sample %in% c( "M23", "M26")
+total <- Plate1BSMelt$Sample %in% c("M4", "M13", "M17" , "M19", "M21", "M41", "M54", "M79")
+anc <- Plate1BSMelt$Sample %in% c( "Ancestor")
+sinR <- Plate1BSMelt$Sample %in% c("M17" , "M19", "M21", "M41", "M54")
+ywcC <- Plate1BSMelt$Sample %in% c("M4", "M13", "M79")
+
+Plate1BSMelt$Treatment[blank] <- "blank"
+Plate1BSMelt$Treatment[spore] <- "spore"
+Plate1BSMelt$Treatment[total] <- "total"
+Plate1BSMelt$Treatment[anc] <- "anc"
+Plate1BSMelt$BiofilmMut[anc] <- "anc"
+Plate1BSMelt$BiofilmMut[sinR] <- "total.sinR"
+Plate1BSMelt$BiofilmMut[ywcC] <- "total.ywcC.slrR"
+Plate1BSMelt$BiofilmMut[spore] <- "spore"
+Plate1BSMelt$BiofilmMut[blank] <- "blank"
+
+Plate1BSMelt
+
+Blank <- Plate2BSMelt$Sample %in% c("Blank1", "Blank2", "Blank3", "Blank4", "Blank5", "Blank6")
+Spore<-Plate2BSMelt$Sample %in% c( "S1", "S6","S22","S52","S95")
+
+Plate2BSMelt$Treatment[Blank] <- "blank"
+Plate2BSMelt$Treatment[Spore] <- "spore"
+Plate2BSMelt$BiofilmMut[Blank] <- "blank"
+Plate2BSMelt$BiofilmMut[Spore] <- "spore"
+
+Plate2BSMelt
+
+data <- rbind(Plate1BSMelt, Plate1BSMelt)
+```
+
+# Correct OD for Blank
+```{r}
+
+#blank.p1 <- Plate1BSMelt %>% 
+#  filter(Sample == "Blank1" | OD550 < 0.073 ) %>% 
+#  summarize(mean.blank.1 = mean(OD550)) # there are two blanks with high values
+#p1.blank.correct <- Plate1BSMelt %>%
+#  mutate(OD550.corr = OD550 - blank.p1$mean.blank.1)
+#p1 <- filter(p1.blank.correct, Sample != "Blank1")
+
+#blank.p2 <- Plate2BSMelt %>% 
+#  filter(Sample %in% c("Blank1", "Blank2", "Blank3", "Blank4", "Blank5", "Blank6")) %>% 
+#  summarize(mean.blank.1 = mean(OD550))
+#p2.blank.correct <- mutate(Plate2BSMelt, OD550 = OD550 - blank.p1)         
+```
+
+
+# Wrangle into treatments
+```{r}
+
+# Ancestor
+anc <- data %>% filter(Sample == "Ancestor")
+anc.mean <- anc %>% summarize(mean = mean(OD550))
+anc.sem <- anc %>% summarize(sem = sem(OD550))
+anc.95 <- anc %>% summarize(LL.95 = LL.95(OD550), UL.95 = UL.95(OD550))
+
+
+# Evolved
+  ## Spore fraction
+m23 <- data %>% filter(Sample == "M23")
+m23.mean <- m23 %>% summarize(mean = mean(OD550))
+m23.sem <- m23 %>% summarize(sem = sem(OD550))
+m23.95 <- m23 %>% summarize(LL.95 = LL.95(OD550), UL.95 = UL.95(OD550))
+
+m26 <- data %>% filter(Sample == "M26")
+m26.mean <- m26 %>% summarize(mean = mean(OD550))
+m26.sem <- m26 %>% summarize(sem = sem(OD550))
+m26.95 <- m26 %>% summarize(LL.95 = LL.95(OD550), UL.95 = UL.95(OD550))
+
+  ## Total fraction
+      ### sinR mutants
+m17 <- data %>% filter(Sample == "M17")
+m17.mean <- m17 %>% summarize(mean = mean(OD550))
+m17.sem <- m17 %>% summarize(sem = sem(OD550))
+m17.95 <- m17 %>% summarize(LL.95 = LL.95(OD550), UL.95 = UL.95(OD550))
+
+m19 <- data %>% filter(Sample == "M19")
+m19.mean <- m19 %>% summarize(mean = mean(OD550))
+m19.sem <- m19 %>% summarize(sem = sem(OD550))
+m19.95 <- m19 %>% summarize(LL.95 = LL.95(OD550), UL.95 = UL.95(OD550))
+
+m21 <- data %>% filter(Sample == "M21")
+m21.mean <- m21 %>% summarize(mean = mean(OD550))
+m21.sem <- m21 %>% summarize(sem = sem(OD550))
+m21.95 <- m21 %>% summarize(LL.95 = LL.95(OD550), UL.95 = UL.95(OD550))
+
+m41 <- data %>% filter(Sample == "M41")
+m41.mean <- m41 %>% summarize(mean = mean(OD550))
+m41.sem <- m41 %>% summarize(sem = sem(OD550))
+m41.95 <- m41 %>% summarize(LL.95 = LL.95(OD550), UL.95 = UL.95(OD550))
+
+m54 <- data %>% filter(Sample == "M54")
+m54.mean <- m54 %>% summarize(mean = mean(OD550))
+m54.sem <- m54 %>% summarize(sem = sem(OD550))
+m54.95 <- m54 %>% summarize(LL.95 = LL.95(OD550), UL.95 = UL.95(OD550))
+
+      ### ywcC mutants
+m4 <- data %>% filter(Sample == "M4")
+m4.mean <- m4 %>% summarize(mean = mean(OD550))
+m4.sem <- m4 %>% summarize(sem = sem(OD550))
+m4.95 <- m4 %>% summarize(LL.95 = LL.95(OD550), UL.95 = UL.95(OD550))
+
+m13 <- data %>% filter(Sample == "M13")
+m13.mean <- m13 %>% summarize(mean = mean(OD550))
+m13.sem <- m13 %>% summarize(sem = sem(OD550))
+m13.95 <- m13 %>% summarize(LL.95 = LL.95(OD550), UL.95 = UL.95(OD550))
+
+m79 <- data %>% filter(Sample == "M79")
+m79.mean <- m79 %>% summarize(mean = mean(OD550))
+m79.sem <- m79 %>% summarize(sem = sem(OD550))
+m79.95 <- m79 %>% summarize(LL.95 = LL.95(OD550), UL.95 = UL.95(OD550))
+```
+
+# Make figure
+```{r}
+# Create plot
+png(filename="~/GitHub/SporeMut/output/biofilm.png",
+    width = 1200, height = 800, res = 96*2) 
+
+plot.new()
+par(mar = c(7, 7, 5, 7), plt = c(0.2, 0.85, 0.45, 0.85))
+
+# Add individuals points
+anc.pt <- plot(jitter(rep(1, length(anc$OD550)), amount = 0.1), anc$OD550, 
+      ylim = c(-0.2, 2.2), xlim = c(0.5, 15), pch = 21, col = "grey90", bg = "grey90", lwd = 2,
+      cex = 1.7, yaxt = "n", xaxt = "n", cex.lab = 2, cex.axis = 1.5,
+      las = 1, ylab = "", xlab = "")
+      box(lwd = 2)
+      
+# Spore mutants
+points(jitter(rep(3, length(m23$OD550)), amount = 0.1), m23$OD550, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(4, length(m26$OD550)), amount = 0.1), m26$OD550, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+
+# Total mutants: sinR
+points(jitter(rep(6, length(m17$OD550)), amount = 0.1), m17$OD550, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(7, length(m19$OD550)), amount = 0.1), m17$OD550, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+#points(jitter(rep(8, length(m19$OD550)), amount = 0.1), m17$OD550, pch = 21, 
+#       bg = "grey60", col = "grey60", lwd = 2, cex = 1.7)
+points(jitter(rep(8, length(m21$OD550)), amount = 0.1), m21$OD550, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(9, length(m41$OD550)), amount = 0.1), m41$OD550, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(10, length(m54$OD550)), amount = 0.1), m54$OD550, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+
+# Total mutants: ywcC 
+
+points(jitter(rep(12, length(m4$OD550)), amount = 0.1), m4$OD550, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(13, length(m13$OD550)), amount = 0.1), m13$OD550,pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(14, length(m79$OD550)), amount = 0.1), m79$OD550,pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+
+# Add means
+points(1, anc.mean, pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(3, m23.mean, pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2)  
+points(4, m26.mean, pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(6, m17.mean, pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(7, m19.mean, pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(8, m21.mean, pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(9, m41.mean, pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(10, m54.mean, pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(12, m4.mean, pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(13, m13.mean, pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(14, m79.mean, pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+
+# Add error bars
+arrows(x0 = c(1, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14), y0 = as.numeric(c(anc.mean, m23.mean, 
+      m26.mean, m17.mean, m19.mean, m21.mean, m41.mean, m54.mean, 
+      m4.mean, m13.mean, m79.mean)), y1 = c(anc.95$UL.95, m23.95$UL.95, 
+      m26.95$UL.95, m17.95$UL.95, m19.95$UL.95, m21.95$UL.95, m41.95$UL.95, 
+      m54.95$UL.95, m4.95$UL.95, m13.95$UL.95, m79.95$UL.95), angle = 90, length = 0.1, lwd = 2)
+       
+arrows(x0 = c(1, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14), y0 = as.numeric(c(anc.mean, m23.mean, 
+      m26.mean, m17.mean, m19.mean, m21.mean, m41.mean, m54.mean, 
+      m4.mean, m13.mean, m79.mean)), y1 = c(anc.95$LL.95, m23.95$LL.95, 
+      m26.95$LL.95, m17.95$LL.95, m19.95$LL.95, m21.95$LL.95, m41.95$LL.95, 
+      m54.95$LL.95, m4.95$LL.95, m13.95$LL.95, m79.95$LL.95), angle = 90, length = 0.1, lwd = 2)
+
+# Add axes
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
+     labels = c("0.0", "1.0", "2.0"), at = c(0, 1, 2))
+
+axis(side = 4, lwd.ticks = 2, cex.axis = 1.25, las = 1,
+     at=c(0, 1, 2), labels = F)
+
+axis(side = 3, lwd.ticks = 2, cex.axis = 1, las = 1,
+     at = c(1, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14), labels = F)
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 3,
+     labels = c("anc", "m23", "m26", "m17", "m19", "m21", "m41", "m54", "m4",
+    "m13", "m79"), at = c(1, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14), col.axis = "grey80")
+
+# Add y-axis label
+mtext(expression('Biofilm (OD550)'), side = 2,
+      outer = FALSE, cex = 1.25, line = 3.6, adj = 0.5)
+
+# Add x-axis labels
+mtext('Ancestor', side = 1, line = 6.25, at = 1, cex = 0.95, col = "grey80")
+segments(0.25, -2.22, 1.75, -2.22, col = "grey80", lwd = 2, xpd = TRUE)
+
+mtext('Evolved', side = 1, line = 6.25, at = 8.5, cex = 0.95, col = "grey80")
+segments(2.75, -2.22, 14.25, -2.22, col = "grey80", lwd = 2, xpd = TRUE)
+
+mtext('Spore', side = 1, line = 4.5, at = 3.5, cex = 0.95, col = "grey80")
+segments(2.75, -1.7, 4.25, -1.7, col = "grey80", lwd = 2, xpd = TRUE)
+
+mtext('Total', side = 1, line = 4.5, at = 10.5, cex = 0.95, col = "grey80")
+segments(5.75, -1.7, 14.25, -1.7, col = "grey80", lwd = 2, xpd = TRUE)
+
+#mtext('sinR', side = 1, line = 2.9, at = 8, cex = 0.95, col = "grey80")
+#segments(5.75, -1.2, 10.25, -1.2, col = "grey80", lwd = 2, xpd = TRUE)
+
+mtext(expression(italic("sinR")), side = 1, line = 2.95, at = 8, cex = 0.95, col = "grey80")
+segments(5.75, -1.2, 10.25, -1.2, col = "grey80", lwd = 2, xpd = TRUE)
+
+#mtext('ywcC', side = 1, line = 2.9, at = 13, cex = 0.95, col = "grey80")
+#segments(11.75, -1.2, 14.25, -1.2, col = "grey80", lwd = 2, xpd = TRUE)
+
+mtext(expression(italic("ywcC")), side = 1, line = 2.95, at = 13, cex = 0.95, col = "grey80")
+segments(11.75, -1.2, 14.25, -1.2, col = "grey80", lwd = 2, xpd = TRUE)
+
+# Close Plot Device
+dev.off()
+graphics.off()
+
+# Show Plot
+img <- readPNG("~/GitHub/SporeMut/output/biofilm.png")
+
+grid.raster(img)
+```
+
+
+# Statistics
+
+```{r}
+data2 <- data %>% 
+  mutate(evolved = ifelse(Sample == "Ancestor", "anc", "evo")) %>%
+  mutate(cell = ifelse(Sample %in% c("M23", "M26"), "spore", "total")) %>%
+  mutate(t.type = ifelse(cell == "spore", "NA", 
+                  ifelse(evolved == "anc", "NA",
+                  ifelse(Sample %in% c("M4", "M13", "M79"), "ywcC", "sinR"))))
+  
+# Test 1: ancestor vs. evolved
+test.1 <- lm(OD550 ~ evolved, data = data2)
+# F-statistic: 2.162 on 1 and 190 DF,  p-value: 0.1431
+
+# Test 2: spore vs. total
+data3 <- data2 %>% filter(evolved != "anc") # remove ancestor
+test.2 <- lm(OD550 ~ cell, data = data3)
+# F-statistic: 2.645 on 1 and 174 DF,  p-value: 0.1057
+
+# Test 3: sinR vs. ymcC
+data4 <- data3 %>% filter(cell != "spore") # remove spore
+test.3 <- lm(OD550 ~ t.type, data = data3)
+# F-statistic: 92.19 on 2 and 173 DF,  p-value: < 2.2e-16
+```

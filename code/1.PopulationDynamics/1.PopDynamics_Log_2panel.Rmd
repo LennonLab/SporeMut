@@ -234,7 +234,8 @@ S.mean <- apply(data.frame(data.B$Spore.A, data.B$Spore.B, data.B$Spore.C, data.
 
 data.all <- rbind(data.B.A[,c(1:2,5,8)], data.B.B[,c(1:2,5,8)], data.B.C[,c(1:2,5,8)], data.B.D[,c(1:2,5,8)])
 data.all <- data.frame(data.all[,1], (10^4 * data.all[,2:3]), data.all[,4])
-data.all <- data.frame(data.all[,1], trans$tot.ab*10^4, data.all[,2:4])
+tot.ab.sort <- trans %>% arrange(rep)
+data.all <- data.frame(data.all[,1], tot.ab.sort$tot.ab*10^4, data.all[,2:4])
 colnames(data.all) <- c("time", "total", "spore", "veg", "rep")
 
 S.sem <- apply(data.frame(data.B$Spore.A, data.B$Spore.B, data.B$Spore.C, data.B$Spore.D), 1, sem) * 10^4
@@ -249,23 +250,80 @@ V.sem <- apply(data.frame(data.B$Veg.A, data.B$Veg.B, data.B$Veg.C, data.B$Veg.D
 # Turn this into a two-panel figure with total on top
 # Like V and S, fit with sigmoidal across all replicates
 
-png(filename="/Users/lennonj/GitHub/SporeMut/output/1.PopDynamics/1.PopDynamics_Log.png",
-     width = 1200, height = 900, res = 96*2)
+png(filename="/Users/lennonj/GitHub/SporeMut/output/1.PopDynamics/1.PopDynamics_Log_2panel.png",
+     width = 1000, height = 1200, res = 96*2)
 
 # Make plot
-par(mar = c(5, 7, 5, 7))
+#par(mfrow=c(2,1), mar = c(5, 7, 5, 7))
+par(mar=c(0.5, 0.5, 1.5, 0.2), mfrow=c(2,1),
+     oma = c(5, 7, 1, 7), xpd = NA)
+#par(mfrow=c(2,1))
+#par(mar = c(5, 7, 5, 7))
 
-plot(log10(data.all$time), log10(data.all$veg), pch = 21, 
+# plot total abundance
+
+plot(log10(data.all$time), log10(data.all$total), pch = 21, 
      bg = "grey80", cex = 1.25, col = "grey80", lwd = 0.75, cex.axis = 1.25,
-     xlab = NA, ylab = NA, xlim = c(-0.5, 3.2), ylim = c(4, 9), yaxt = "n", xaxt = "n")
-
-points(log10(data.all$time), log10(data.all$spore), pch = 21, lwd = 0.75, col = "grey50", 
-      bg = "grey50", cex = 1.25)
-
-legend(50, 9, c("Spore", "Vegetative"), pch = 21, pt.bg = c("grey50", "grey80"), 
-       col = c("grey50", "grey80"), pt.cex = 1.25, pt.lwd = 0.75, bty = 'n', 
-       y.intersp = 0.80, lwd = 0, x.intersp = -0.5)
+     xlab = NA, ylab = NA, xlim = c(-0.75, 3.5), ylim = c(4, 9), yaxt = "n", xaxt = "n")
 box(lwd = 2)
+
+# Add axes
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
+     labels = expression(10^4, 10^5, 10^6, 10^7, 10^8, 10^9),
+     at = c(4, 5, 6, 7, 8, 9))
+
+axis(side = 4, lwd.ticks = 2, cex.axis = 1.25,
+     at=c(4, 5, 6, 7, 8, 9), labels = F)
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1.25,
+     at = c(0, 1, 2, 3), labels = F)
+
+axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
+     at = c(0, 1, 2, 3), labels = F)
+
+#legend(1.8, 8, c("Total"), pch = 21, pt.bg = c("grey80"), 
+#       col = c("grey80"), pt.cex = 1.25, pt.lwd = 0.75, bty = 'n', 
+#       y.intersp = 0.80, lwd = 0, x.intersp = -0.5)
+
+rect(3.3, 5.6, 4, 6.8, col = "white", border = NA)
+
+text(3.2, 6.1, labels = "Total (S + V)", cex = 0.8, adj = 0)
+
+
+# Fit total abundance with sigmoidal function using MLE
+
+# Initial parameters
+
+A = 5.5 # Minimum (log10)
+B = 8.5 # Maximum (log10)
+M = 0.7 # Midpoint (log10)
+W = 0.16 # Slope
+Z = 0.2 # Error
+
+# Function
+fit.t <- mle2(log10(total) ~ dnorm(mean = b + (a - b) / 
+            (1 + exp((m - log10(time)) / w)), sd = z),
+            start = list(a = A, b = B, m = M, w = W, z = Z), data = data.all) 
+
+curve(coef(fit.t)[[2]] + (coef(fit.t)[[1]] - coef(fit.t)[[2]]) / 
+        (1 + exp((coef(fit.t)[[3]] - x) / coef(fit.t)[[4]])), 
+      from = -0.24, to = 3.05, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
+
+
+# plot vegetative and spore abundance
+#par(xpd = NA)
+plot(log10(data.all$time), log10(data.all$veg), pch = 21, 
+     bg = "grey60", cex = 1.25, col = "grey60", lwd = 0.75, cex.axis = 1.25,
+     xlab = NA, ylab = NA, xlim = c(-0.75, 3.5), ylim = c(4, 9), yaxt = "n", xaxt = "n", xpd = FALSE)
+box(lwd = 2)
+
+points(log10(data.all$time), log10(data.all$spore), pch = 21, lwd = 0.75, col = "grey40", 
+      bg = "grey40", cex = 1.25)
+
+
+#legend(1.8, 8, c("Spore", "Vegetative"), pch = 21, pt.bg = c("grey40", "grey60"), 
+#       col = c("grey40", "grey60"), pt.cex = 1.25, pt.lwd = 0.75, bty = 'n', 
+#       y.intersp = 0.95, lwd = 0, x.intersp = -0.5)
 
 # Add axes
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
@@ -282,11 +340,16 @@ axis(side = 1, lwd.ticks = 2, cex.axis = 1.25, las = 1,
 axis(side = 3, lwd.ticks = 2, cex.axis = 1.25,
      at = c(0, 1, 2, 3), labels = F)
 
-mtext('Time (d)', side = 1, outer = TRUE, cex = 1.5, 
-      line = -2, adj = 0.5)
+rect(3.4, 5, 4, 6.8, col = "white", border = NA)
 
-mtext(expression('Bacteria (CFU ml'^-1*')'), side = 2, outer = TRUE, cex = 1.5, 
-      line = -3.5, adj = 0.5)
+text(3.2, 5.45, labels = "Vegetative (V)", cex = 0.8, adj = 0)
+text(3.2, 6.0, labels = "Spore (S)", cex = 0.8, adj = 0)
+
+mtext('Time (d)', side = 1, outer = TRUE, cex = 1.75, 
+      line = 3, adj = 0.5)
+
+mtext(expression('Bacteria (CFU ml'^-1*')'), side = 2, outer = TRUE, cex = 1.75, 
+      line = 3.5, adj = 0.5)
 
 # Fit vegetative abundance with sigmoidal function using MLE
 
@@ -329,47 +392,78 @@ curve(coef(fit.s)[[2]] + (coef(fit.s)[[1]] - coef(fit.s)[[2]]) /
       from = -0.24, to = 3.05, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
 
 
-# Fit spore abundance with sigmoidal function using MLE
-
-# Initial parameters
-
-A = 6 # Minimum (log10)
-B = 8.5 # Maximum (log10)
-M = 1.1 # Midpoint (log10)
-W = 0.16 # Slope
-Z = 0.2 # Error
-
-# Function
-fit.t <- mle2(log10(total) ~ dnorm(mean = b + (a - b) / (1 + exp((m - log10(time)) / w)), sd = z),
-            start = list(a = A, b = B, m = M, w = W, z = Z), data = data.all) 
-
-curve(coef(fit.t)[[2]] + (coef(fit.t)[[1]] - coef(fit.t)[[2]]) / 
-        (1 + exp((coef(fit.t)[[3]] - x) / coef(fit.t)[[4]])), 
-      from = -0.24, to = 3.05, add = TRUE, lty = 2, lwd = 2.5, col = "black") 
-
 # Close Plot Device
 dev.off()
 graphics.off()
  
 # Show Plot
-img <- readPNG("/Users/lennonj/GitHub/SporeMut/output/1.PopDynamics/1.PopDynamics_Log.png")
+img <- readPNG("/Users/lennonj/GitHub/SporeMut/output/1.PopDynamics/1.PopDynamics_Log_2panel.png")
 grid.raster(img)
 ```
 
 
 # Calculate some biological descriptors of population dynamics
 ```{r}
-
-# Use one group of starting estimates and then pull out each replicate from data.all
-# Fit each replicate by fraction (S, V, and T)
-# From this create a table with parameters for each fraction and each replicate
-# Then, we can report population averaged estimates of sigmoidal parameters
-# In addition, estimate sporulation efficiency for first 24 h
-
+# Subset data by replicate
 data.all.A <- filter(data.all, rep == "A")
 data.all.B <- filter(data.all, rep == "B")
 data.all.C <- filter(data.all, rep == "C")
 data.all.D <- filter(data.all, rep == "D")
+
+# Magnitude drop in total population by day 10 (i.e., bottleneck)
+crash.A <- data.all.A %>%
+  filter(time == 0.0000 | time == 10.000) %>%
+  summarise(tot.ab = total)
+crash.A.fold <- crash.A[1,1]/crash.A[2,1] # 234-fold decline
+crash.A.per <- (crash.A[1,1] - crash.A[2,1]) / crash.A[1,1] # 0.9957273 % decline
+
+crash.B <- data.all.B %>%
+  filter(time == 0.0000 | time == 10.000) %>%
+  summarise(tot.ab = total)
+crash.B.fold <- crash.B[1,1]/crash.B[2,1] # 294-fold decline
+crash.B.per <- (crash.B[1,1] - crash.B[2,1]) / crash.B[1,1] # 0.9966071 % decline
+
+crash.C <- data.all.C %>%
+  filter(time == 0.0000 | time == 10.000) %>%
+  summarise(tot.ab = total)
+crash.C.fold <- crash.C[1,1]/crash.C[2,1] # 411-fold decline
+crash.C.per <- (crash.C[1,1] - crash.C[2,1]) / crash.C[1,1] # 0.9975667 % decline
+
+crash.D <- data.all.D %>%
+  filter(time == 0.0000 | time == 10.000) %>%
+  summarise(tot.ab = total)
+crash.D.fold <- crash.C[1,1]/crash.D[2,1] # 333-fold decline
+crash.D.per <- (crash.D[1,1] - crash.D[2,1]) / crash.D[1,1] # 0.9979545 % decline
+
+mean.crash <- mean(crash.A.per, crash.B.per, crash.C.per, crash.D.per)
+sem.crash <- sem(c(crash.A.per, crash.B.per, crash.C.per, crash.D.per))
+# 99.6 +/- 0.0005 % decline --> this is the bottleneck
+
+
+# Sporulation efficiency
+spore.eff.A <- data.all.A %>%
+  filter(time == 0.0000 | time == 1.0 | time == 10.000) %>%
+  summarise(spore.e = spore/total)
+
+spore.eff.B <- data.all.B %>%
+  filter(time == 0.0000 | time == 1.0 | time == 10.000) %>%
+  summarise(spore.e = spore/total)
+
+spore.eff.C <- data.all.C %>%
+  filter(time == 0.0000 | time == 1.0 | time == 10.000) %>%
+  summarise(spore.e = spore/total)
+
+spore.eff.D <- data.all.D %>%
+  filter(time == 0.0000 | time == 1.0 | time == 10.000) %>%
+  summarise(spore.e = spore/total)
+
+mean.spore.eff.1d <- mean(spore.eff.A[2,1], spore.eff.B[2,1], spore.eff.C[2,1], spore.eff.D[2,1]) *100
+sem.spore.eff.1d <- sem(c(spore.eff.A[2,1], spore.eff.B[2,1], spore.eff.C[2,1], spore.eff.D[2,1])) *100
+# 1 day sporulation efficiency = 0.13 +/- 0.0207735 %
+
+mean.spore.eff.10d <- mean(spore.eff.A[3,1], spore.eff.B[3,1], spore.eff.C[3,1], spore.eff.D[3,1]) *100
+sem.spore.eff.10d <- sem(c(spore.eff.A[3,1], spore.eff.B[3,1], spore.eff.C[3,1], spore.eff.D[3,1])) *100
+# 10 day sporulation efficiency = 79.3 +/- 3.32982 %
 
 # Fit vegetative abundance with sigmoidal function using MLE
 
@@ -452,13 +546,32 @@ parm.fit.v.B <- summary(fit.v.B)@coef[1:5,1:2]
 parm.fit.v.C <- summary(fit.v.C)@coef[1:5,1:2] 
 parm.fit.v.D <- summary(fit.v.D)@coef[1:5,1:2] 
 parm.fit.t.A <- summary(fit.t.A)@coef[1:5,1:2]
-parm.fit.t.B <- summary(fit.t.B)@coef[1:5,1:2] # NaN
+parm.fit.t.B <- summary(fit.t.B)@coef[1:5,1:2] 
 parm.fit.t.C <- summary(fit.t.C)@coef[1:5,1:2]
 parm.fit.t.D <- summary(fit.t.D)@coef[1:5,1:2]
 
-parms.fits <- rbind(parm.fit.s.A, parm.fit.s.B, parm.fit.s.C, parm.fit.s.D,
+parm.fit.reps <- c("A", "B", "C", "D", "A", "B", "C", "D", "A", "B", "C", "D", "A", "B", "C", "D" )
+parm.fit.cell <- c("s", "s", "s", "s", "v", "v", "v", "v", "t", "t", "t", "t")
+
+parm.fits <- rbind(parm.fit.s.A, parm.fit.s.B, parm.fit.s.C, parm.fit.s.D,
                  parm.fit.v.A, parm.fit.v.B, parm.fit.v.C, parm.fit.v.D,
                  parm.fit.t.A, parm.fit.t.B, parm.fit.t.C, parm.fit.t.D)
+parm.names <- rep(c("a","b","m","w","z"), 12)
+parm.fit.reps <- rep(c("A", "A", "A", "A", "A", "B", "B", "B", "B", "B", 
+                   "C", "C", "C", "C", "C", "D", "D", "D", "D", "D"), 3)
+parm.cell <- c(rep("s", 20), rep("v", 20), rep("t", 20))
 
+parms <- as.data.frame(cbind(parm.cell, parm.fit.reps, parm.names, parm.fits))
+
+rownames(parms) <- 1:nrow(parms)
+colnames(parms) <- c("cell", "rep", "parm", "est", "sem")
+parms$est <- as.numeric(parms$est)
+parms$sem <- as.numeric(parms$sem)
+parms$est <- round(parms$est, 3)
+parms$sem <- round(parms$sem, 4)
+
+write.table(parms, "output/1.PopDynamics/sigmoidal.parms.txt", sep = "\t", col.names = T, row.names = F)
+
+write.csv(df, file = file_path, row.names = FALSE)
 
 ```
