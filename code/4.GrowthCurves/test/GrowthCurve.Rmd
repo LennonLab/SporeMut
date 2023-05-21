@@ -1,0 +1,127 @@
+---
+title: "Growth Curves"
+author: "Jay T. Lennon"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+header-includes:
+  - \usepackage{array}
+output: pdf_document
+geometry: margin=2.54cm
+---
+
+## Clear workspace and set directory
+```{r setup}
+rm(list=ls())
+setwd("~/Github/SporeMut/code/4.GrowthCurves/test")
+```
+
+## Load packages and functions
+```{r}
+require("png")
+require("dplyr")
+require("grid")
+require("gtools")
+require("nlme")
+require("MuMIn")
+require("bbmle")
+source("~/Github/SporeMut/code/4.GrowthCurves/bin/modified_Gomp_diagnostic3.R")
+sem <- function(x) sqrt(var(x)/length(x))
+cv <- function(x) 100*( sd(x)/mean(x))
+```
+
+# Load data and run Gompertz
+```{r}
+
+###### NM: bioreplicate 1 plate ######
+
+nm.b1 <- read.csv("~/Github/SporeMut/code/4.GrowthCurves/data/batch_NM_1.csv")
+
+# Change times to numeric
+nm.b1$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", nm.b1 $Time))
+head(nm.b1, header = T)
+
+# Pull out wells over time 
+# Assigning wells to treatments, in this case time points
+nm.0 <-  nm.b1[,c(1,2,12,22)]
+nm.10 <-  nm.b1[,c(1,32,41,50)]
+nm.20 <-  nm.b1[,c(1,3,13,23)]
+nm.30 <-  nm.b1[,c(1,33,42,51)]
+nm.40 <-  nm.b1[,c(1,4,14,24)]
+nm.50 <-  nm.b1[,c(1,34,43,52)]
+nm.60 <-  nm.b1[,c(1,5,15,25)]
+nm.80 <-  nm.b1[,c(1,35,44,53)]
+nm.100 <-  nm.b1[,c(1,6,16,26)]
+nm.120 <-  nm.b1[, c(1,36,45,54)]
+nm.140 <-  nm.b1[,c(1,7,17,27)]
+nm.160 <-  nm.b1[,c(1,37,46,55)]
+nm.200 <-  nm.b1[,c(1,8,18,28)]
+nm.220 <-  nm.b1[,c(1,38,47,56)]
+nm.240 <-  nm.b1[1:which(nm.b1[,1] == 15.00), c(1,9,19,29)]
+nm.260 <-  nm.b1[1:which(nm.b1[,1] == 15.00), c(1,39,48,57)]
+nm.280 <-  nm.b1[,c(1,10,20,30)]
+nm.300 <-  nm.b1[1:which(nm.b1[,1] == 15.00), c(1,40,49,58)]
+jcvi <-  nm.b1[,c(1,11,21,31)]
+
+# Run Gompertz (only need to run once then comment out)
+
+ nm.t0.1 <- growth.modGomp(input = nm.0, output.name = "nm.t0.1.parms",
+                 synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t10.1 <- growth.modGomp(input = nm.10, output.name = "nm.t10.1.parms",
+ #                 synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t20.1  <- growth.modGomp(input = nm.20, output.name = "nm.t20.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t30.1  <- growth.modGomp(input = nm.30, output.name = "nm.t30.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t40.1  <- growth.modGomp(input = nm.40, output.name = "nm.t40.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t50.1  <- growth.modGomp(input = nm.50, output.name = "nm.t50.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t60.1  <- growth.modGomp(input = nm.60, output.name = "nm.t60.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t80.1  <- growth.modGomp(input = nm.80, output.name = "nm.t80.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t100.1  <- growth.modGomp(input = nm.100, output.name = "nm.t100.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t120.1  <- growth.modGomp(input = nm.120, output.name = "nm.t120.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t140.1  <- growth.modGomp(input = nm.140, output.name = "nm.t140.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t160.1  <- growth.modGomp(input = nm.160, output.name = "nm.t160.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t200.1  <- growth.modGomp(input = nm.200, output.name = "nm.t200.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t220.1  <- growth.modGomp(input = nm.220, output.name = "nm.t220.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t240.1  <- growth.modGomp(input = nm.240, output.name = "nm.t240.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t260.1  <- growth.modGomp(input = nm.260, output.name = "nm.t260.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t280.1  <- growth.modGomp(input = nm.280, output.name = "nm.t280.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.t300.1  <- growth.modGomp(input = nm.300, output.name = "nm.t300.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+ # nm.jcvi.t1000.1  <- growth.modGomp(input = jcvi, output.name = "nm.jcvi.t1000.1.parms",
+ #                synergy = F, temp = F, smooth = T, trim = T)
+
+t0.out.nm.1 <- read.table("../output/nm.t0.1.parms.txt", sep = ",", header=TRUE)
+# t10.out.nm.1 <- read.table("../output/nm.t10.1.parms.txt", sep = ",", header=TRUE)
+# t20.out.nm.1 <- read.table("../output/nm.t20.1.parms.txt", sep = ",", header=TRUE)
+# t30.out.nm.1 <- read.table("../output/nm.t30.1.parms.txt", sep = ",", header=TRUE)
+# t40.out.nm.1 <- read.table("../output/nm.t40.1.parms.txt", sep = ",", header=TRUE)
+# t50.out.nm.1 <- read.table("../output/nm.t50.1.parms.txt", sep = ",", header=TRUE)
+# t60.out.nm.1 <- read.table("../output/nm.t60.1.parms.txt", sep = ",", header=TRUE)
+# t80.out.nm.1 <- read.table("../output/nm.t80.1.parms.txt", sep = ",", header=TRUE)
+# t100.out.nm.1 <- read.table("../output/nm.t100.1.parms.txt", sep = ",", header=TRUE)
+# t120.out.nm.1 <- read.table("../output/nm.t120.1.parms.txt", sep = ",", header=TRUE)
+# t140.out.nm.1 <- read.table("../output/nm.t140.1.parms.txt", sep = ",", header=TRUE)
+# t160.out.nm.1 <- read.table("../output/nm.t160.1.parms.txt", sep = ",", header=TRUE)
+# t200.out.nm.1 <- read.table("../output/nm.t200.1.parms.txt", sep = ",", header=TRUE)
+# t220.out.nm.1 <- read.table("../output/nm.t220.1.parms.txt", sep = ",", header=TRUE)
+# t240.out.nm.1 <- read.table("../output/nm.t240.1.parms.txt", sep = ",", header=TRUE)
+# t260.out.nm.1 <- read.table("../output/nm.t260.1.parms.txt", sep = ",", header=TRUE)
+# t280.out.nm.1 <- read.table("../output/nm.t280.1.parms.txt", sep = ",", header=TRUE)
+# t300.out.nm.1 <- read.table("../output/nm.t300.1.parms.txt", sep = ",", header=TRUE)
+# t1000.out.nm.1 <- read.table("../output/nm.jcvi.t1000.1.parms.txt", sep = ",", header=TRUE)
+
+treats.nm.1 <- read.csv("../data/treatments_batch1_NM.csv")
+treats.nm.1[rep(seq_len(nrow(treats.nm.1)), each = 19), ]
+```
