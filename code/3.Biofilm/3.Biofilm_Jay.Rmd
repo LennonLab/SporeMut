@@ -180,7 +180,7 @@ m79.95 <- m79 %>% summarize(LL.95 = LL.95(OD550), UL.95 = UL.95(OD550))
 # Make figure
 ```{r}
 # Create plot
-png(filename="~/GitHub/SporeMut/output/biofilm.png",
+png(filename="~/GitHub/SporeMut/output/3.Biofilms/biofilm.png",
     width = 1200, height = 800, res = 96*2) 
 
 plot.new()
@@ -307,7 +307,7 @@ dev.off()
 graphics.off()
 
 # Show Plot
-img <- readPNG("~/GitHub/SporeMut/output/biofilm.png")
+img <- readPNG("~/GitHub/SporeMut/output/3.Biofilms/biofilm.png")
 
 grid.raster(img)
 ```
