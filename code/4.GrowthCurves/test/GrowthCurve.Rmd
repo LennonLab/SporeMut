@@ -171,7 +171,7 @@ m79.95UL <- m79 %>% summarize(UL.95_A = UL.95(A), UL.95_umax = UL.95(umax),
 # Make figure
 ```{r}
 # Create plot
-png(filename="~/GitHub/SporeMut/output/growth.umax.png",
+png(filename="~/GitHub/SporeMut/output/4.GrowthCurves/growth.umax.png",
     width = 1200, height = 800, res = 96*2) 
 
 plot.new()
@@ -289,7 +289,7 @@ dev.off()
 graphics.off()
 
 # Show Plot
-img <- readPNG("~/GitHub/SporeMut/output/growth.umax.png")
+img <- readPNG("~/GitHub/SporeMut/output/4.GrowthCurves/growth.umax.png")
 
 grid.raster(img)
 
