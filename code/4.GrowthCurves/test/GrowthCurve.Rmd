@@ -26,102 +26,271 @@ require("bbmle")
 source("~/Github/SporeMut/code/4.GrowthCurves/bin/modified_Gomp_diagnostic3.R")
 sem <- function(x) sqrt(var(x)/length(x))
 cv <- function(x) 100*( sd(x)/mean(x))
+LL.95 <- function(x) t.test(x)$conf.int[1]
+UL.95 <- function(x) t.test(x)$conf.int[2]
 ```
 
-# Load data and run Gompertz
+# Load data
 ```{r}
+# Load data and change time to numeric
+dat <- read.csv("~/Github/SporeMut/code/4.GrowthCurves/data/batch_combo.csv")
+dat$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat$Time))
+dat <- cbind(dat1,dat2)
+```
 
-###### NM: bioreplicate 1 plate ######
+# Run Gompertz model
+```{r}
+# Slow process: comment out line below after running
+# fits <- growth.modGomp(input = dat, output.name = "fit.parms",
+#        synergy = F, temp = F, smooth = T, trim = T)
+fits.out <- read.table("../output/fit.parms.txt", sep = ",", header = TRUE)
+treats <- read.csv("../data/treatments.csv")
+parms <- data.frame(treats, fits)
+head(parms)
+```
 
-nm.b1 <- read.csv("~/Github/SporeMut/code/4.GrowthCurves/data/batch_NM_1.csv")
+# Wrangle into treatments
+```{r}
+# Ancestor
+anc <- parms %>% filter(evo.type == "anc")
+anc.mean <- anc %>% summarize(mean_A = mean(A), mean_umax = mean(umax), 
+            mean_L = mean(L))
+anc.sem <- anc %>% summarize(sem_A = sem(A), sem_umax = sem(umax), 
+            sem_L = sem(L))
+anc.95LL <- anc %>% summarize(LL.95_A = LL.95(A), LL.95_umax = LL.95(umax), 
+            LL.95_L = LL.95(L))
+anc.95UL <- anc %>% summarize(UL.95_A = UL.95(A), UL.95_umax = UL.95(umax), 
+            UL.95_L = UL.95(L))
 
-# Change times to numeric
-nm.b1$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", nm.b1 $Time))
-head(nm.b1, header = T)
+# Evolved
+  ## Spore fraction
+m23 <- parms %>% filter(strain == "M23")
+m23.mean <- m23 %>% summarize(mean_A = mean(A), mean_umax = mean(umax), 
+            mean_L = mean(L))
+m23.sem <- m23 %>% summarize(sem_A = sem(A), sem_umax = sem(umax), 
+            sem_L = sem(L))
+m23.95LL <- m23 %>% summarize(LL.95_A = LL.95(A), LL.95_umax = LL.95(umax), 
+            LL.95_L = LL.95(L))
+m23.95UL <- m23 %>% summarize(UL.95_A = UL.95(A), UL.95_umax = UL.95(umax), 
+            UL.95_L = UL.95(L))
 
-# Pull out wells over time 
-# Assigning wells to treatments, in this case time points
-nm.0 <-  nm.b1[,c(1,2,12,22)]
-nm.10 <-  nm.b1[,c(1,32,41,50)]
-nm.20 <-  nm.b1[,c(1,3,13,23)]
-nm.30 <-  nm.b1[,c(1,33,42,51)]
-nm.40 <-  nm.b1[,c(1,4,14,24)]
-nm.50 <-  nm.b1[,c(1,34,43,52)]
-nm.60 <-  nm.b1[,c(1,5,15,25)]
-nm.80 <-  nm.b1[,c(1,35,44,53)]
-nm.100 <-  nm.b1[,c(1,6,16,26)]
-nm.120 <-  nm.b1[, c(1,36,45,54)]
-nm.140 <-  nm.b1[,c(1,7,17,27)]
-nm.160 <-  nm.b1[,c(1,37,46,55)]
-nm.200 <-  nm.b1[,c(1,8,18,28)]
-nm.220 <-  nm.b1[,c(1,38,47,56)]
-nm.240 <-  nm.b1[1:which(nm.b1[,1] == 15.00), c(1,9,19,29)]
-nm.260 <-  nm.b1[1:which(nm.b1[,1] == 15.00), c(1,39,48,57)]
-nm.280 <-  nm.b1[,c(1,10,20,30)]
-nm.300 <-  nm.b1[1:which(nm.b1[,1] == 15.00), c(1,40,49,58)]
-jcvi <-  nm.b1[,c(1,11,21,31)]
+m26 <- parms %>% filter(strain == "M26")
+m26.mean <- m26 %>% summarize(mean_A = mean(A), mean_umax = mean(umax), 
+            mean_L = mean(L))
+m26.sem <- m26 %>% summarize(sem_A = sem(A), sem_umax = sem(umax), 
+            sem_L = sem(L))
+m26.95LL <- m26 %>% summarize(LL.95_A = LL.95(A), LL.95_umax = LL.95(umax), 
+            LL.95_L = LL.95(L))
+m26.95UL <- m26 %>% summarize(UL.95_A = UL.95(A), UL.95_umax = UL.95(umax), 
+            UL.95_L = UL.95(L))
 
-# Run Gompertz (only need to run once then comment out)
+  ## Total fraction
+      ### sinR mutants
+m17 <- parms %>% filter(strain == "M17")
+m17.mean <- m17 %>% summarize(mean_A = mean(A), mean_umax = mean(umax), 
+            mean_L = mean(L))
+m17.sem <- m17 %>% summarize(sem_A = sem(A), sem_umax = sem(umax), 
+            sem_L = sem(L))
+m17.95LL <- m17 %>% summarize(LL.95_A = LL.95(A), LL.95_umax = LL.95(umax), 
+            LL.95_L = LL.95(L))
+m17.95UL <- m17 %>% summarize(UL.95_A = UL.95(A), UL.95_umax = UL.95(umax), 
+            UL.95_L = UL.95(L))
 
- nm.t0.1 <- growth.modGomp(input = nm.0, output.name = "nm.t0.1.parms",
-                 synergy = F, temp = F, smooth = T, trim = T)
- # nm.t10.1 <- growth.modGomp(input = nm.10, output.name = "nm.t10.1.parms",
- #                 synergy = F, temp = F, smooth = T, trim = T)
- # nm.t20.1  <- growth.modGomp(input = nm.20, output.name = "nm.t20.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t30.1  <- growth.modGomp(input = nm.30, output.name = "nm.t30.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t40.1  <- growth.modGomp(input = nm.40, output.name = "nm.t40.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t50.1  <- growth.modGomp(input = nm.50, output.name = "nm.t50.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t60.1  <- growth.modGomp(input = nm.60, output.name = "nm.t60.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t80.1  <- growth.modGomp(input = nm.80, output.name = "nm.t80.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t100.1  <- growth.modGomp(input = nm.100, output.name = "nm.t100.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t120.1  <- growth.modGomp(input = nm.120, output.name = "nm.t120.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t140.1  <- growth.modGomp(input = nm.140, output.name = "nm.t140.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t160.1  <- growth.modGomp(input = nm.160, output.name = "nm.t160.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t200.1  <- growth.modGomp(input = nm.200, output.name = "nm.t200.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t220.1  <- growth.modGomp(input = nm.220, output.name = "nm.t220.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t240.1  <- growth.modGomp(input = nm.240, output.name = "nm.t240.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t260.1  <- growth.modGomp(input = nm.260, output.name = "nm.t260.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t280.1  <- growth.modGomp(input = nm.280, output.name = "nm.t280.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.t300.1  <- growth.modGomp(input = nm.300, output.name = "nm.t300.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
- # nm.jcvi.t1000.1  <- growth.modGomp(input = jcvi, output.name = "nm.jcvi.t1000.1.parms",
- #                synergy = F, temp = F, smooth = T, trim = T)
+m19 <- parms %>% filter(strain == "M19")
+m19.mean <- m19 %>% summarize(mean_A = mean(A), mean_umax = mean(umax), 
+            mean_L = mean(L))
+m19.sem <- m19 %>% summarize(sem_A = sem(A), sem_umax = sem(umax), 
+            sem_L = sem(L))
+m19.95LL <- m19 %>% summarize(LL.95_A = LL.95(A), LL.95_umax = LL.95(umax), 
+            LL.95_L = LL.95(L))
+m19.95UL <- m19 %>% summarize(UL.95_A = UL.95(A), UL.95_umax = UL.95(umax), 
+            UL.95_L = UL.95(L))
 
-t0.out.nm.1 <- read.table("../output/nm.t0.1.parms.txt", sep = ",", header=TRUE)
-# t10.out.nm.1 <- read.table("../output/nm.t10.1.parms.txt", sep = ",", header=TRUE)
-# t20.out.nm.1 <- read.table("../output/nm.t20.1.parms.txt", sep = ",", header=TRUE)
-# t30.out.nm.1 <- read.table("../output/nm.t30.1.parms.txt", sep = ",", header=TRUE)
-# t40.out.nm.1 <- read.table("../output/nm.t40.1.parms.txt", sep = ",", header=TRUE)
-# t50.out.nm.1 <- read.table("../output/nm.t50.1.parms.txt", sep = ",", header=TRUE)
-# t60.out.nm.1 <- read.table("../output/nm.t60.1.parms.txt", sep = ",", header=TRUE)
-# t80.out.nm.1 <- read.table("../output/nm.t80.1.parms.txt", sep = ",", header=TRUE)
-# t100.out.nm.1 <- read.table("../output/nm.t100.1.parms.txt", sep = ",", header=TRUE)
-# t120.out.nm.1 <- read.table("../output/nm.t120.1.parms.txt", sep = ",", header=TRUE)
-# t140.out.nm.1 <- read.table("../output/nm.t140.1.parms.txt", sep = ",", header=TRUE)
-# t160.out.nm.1 <- read.table("../output/nm.t160.1.parms.txt", sep = ",", header=TRUE)
-# t200.out.nm.1 <- read.table("../output/nm.t200.1.parms.txt", sep = ",", header=TRUE)
-# t220.out.nm.1 <- read.table("../output/nm.t220.1.parms.txt", sep = ",", header=TRUE)
-# t240.out.nm.1 <- read.table("../output/nm.t240.1.parms.txt", sep = ",", header=TRUE)
-# t260.out.nm.1 <- read.table("../output/nm.t260.1.parms.txt", sep = ",", header=TRUE)
-# t280.out.nm.1 <- read.table("../output/nm.t280.1.parms.txt", sep = ",", header=TRUE)
-# t300.out.nm.1 <- read.table("../output/nm.t300.1.parms.txt", sep = ",", header=TRUE)
-# t1000.out.nm.1 <- read.table("../output/nm.jcvi.t1000.1.parms.txt", sep = ",", header=TRUE)
+m21 <- parms %>% filter(strain == "M21")
+m21.mean <- m21 %>% summarize(mean_A = mean(A), mean_umax = mean(umax), 
+            mean_L = mean(L))
+m21.sem <- m21 %>% summarize(sem_A = sem(A), sem_umax = sem(umax), 
+            sem_L = sem(L))
+m21.95LL <- m21 %>% summarize(LL.95_A = LL.95(A), LL.95_umax = LL.95(umax), 
+            LL.95_L = LL.95(L))
+m21.95UL <- m21 %>% summarize(UL.95_A = UL.95(A), UL.95_umax = UL.95(umax), 
+            UL.95_L = UL.95(L))
 
-treats.nm.1 <- read.csv("../data/treatments_batch1_NM.csv")
-treats.nm.1[rep(seq_len(nrow(treats.nm.1)), each = 19), ]
+m41 <- parms %>% filter(strain == "M41")
+m41.mean <- m41 %>% summarize(mean_A = mean(A), mean_umax = mean(umax), 
+            mean_L = mean(L))
+m41.sem <- m41 %>% summarize(sem_A = sem(A), sem_umax = sem(umax), 
+            sem_L = sem(L))
+m41.95LL <- m41 %>% summarize(LL.95_A = LL.95(A), LL.95_umax = LL.95(umax), 
+            LL.95_L = LL.95(L))
+m41.95UL <- m41 %>% summarize(UL.95_A = UL.95(A), UL.95_umax = UL.95(umax), 
+            UL.95_L = UL.95(L))
+
+m54 <- parms %>% filter(strain == "M54")
+m54.mean <- m54 %>% summarize(mean_A = mean(A), mean_umax = mean(umax), 
+            mean_L = mean(L))
+m54.sem <- m54 %>% summarize(sem_A = sem(A), sem_umax = sem(umax), 
+            sem_L = sem(L))
+m54.95LL <- m54 %>% summarize(LL.95_A = LL.95(A), LL.95_umax = LL.95(umax), 
+            LL.95_L = LL.95(L))
+m54.95UL <- m54 %>% summarize(UL.95_A = UL.95(A), UL.95_umax = UL.95(umax), 
+            UL.95_L = UL.95(L))
+
+      ### ywcC mutants
+m4 <- parms %>% filter(strain == "M4")
+m4.mean <- m4 %>% summarize(mean_A = mean(A), mean_umax = mean(umax), 
+            mean_L = mean(L))
+m4.sem <- m4 %>% summarize(sem_A = sem(A), sem_umax = sem(umax), 
+            sem_L = sem(L))
+m4.95LL <- m4 %>% summarize(LL.95_A = LL.95(A), LL.95_umax = LL.95(umax), 
+            LL.95_L = LL.95(L))
+m4.95UL <- m4 %>% summarize(UL.95_A = UL.95(A), UL.95_umax = UL.95(umax), 
+            UL.95_L = UL.95(L))
+
+m13 <- parms %>% filter(strain == "M13")
+m13.mean <- m13 %>% summarize(mean_A = mean(A), mean_umax = mean(umax), 
+            mean_L = mean(L))
+m13.sem <- m13 %>% summarize(sem_A = sem(A), sem_umax = sem(umax), 
+            sem_L = sem(L))
+m13.95LL <- m13 %>% summarize(LL.95_A = LL.95(A), LL.95_umax = LL.95(umax), 
+            LL.95_L = LL.95(L))
+m13.95UL <- m13 %>% summarize(UL.95_A = UL.95(A), UL.95_umax = UL.95(umax), 
+            UL.95_L = UL.95(L))
+
+m79 <- parms %>% filter(strain == "M79")
+m79.mean <- m79 %>% summarize(mean_A = mean(A), mean_umax = mean(umax), 
+            mean_L = mean(L))
+m79.sem <- m79 %>% summarize(sem_A = sem(A), sem_umax = sem(umax), 
+            sem_L = sem(L))
+m79.95LL <- m79 %>% summarize(LL.95_A = LL.95(A), LL.95_umax = LL.95(umax), 
+            LL.95_L = LL.95(L))
+m79.95UL <- m79 %>% summarize(UL.95_A = UL.95(A), UL.95_umax = UL.95(umax), 
+            UL.95_L = UL.95(L))
+```
+
+# Make figure
+```{r}
+# Create plot
+png(filename="~/GitHub/SporeMut/output/growth.umax.png",
+    width = 1200, height = 800, res = 96*2) 
+
+plot.new()
+par(mar = c(7, 7, 5, 7), plt = c(0.2, 0.85, 0.45, 0.85))
+
+# Add individuals points
+anc.pt <- plot(jitter(rep(1, length(anc$umax)), amount = 0.1), anc$umax, 
+      ylim = c(0.05, 0.1), xlim = c(0.5, 15), pch = 21, col = "grey90", 
+      bg = "grey90", lwd = 2,
+      cex = 1.7, yaxt = "n", xaxt = "n", cex.lab = 2, cex.axis = 1.5,
+      las = 1, ylab = "", xlab = "")
+      box(lwd = 2)
+
+# Spore mutants
+points(jitter(rep(3, length(m23$umax)), amount = 0.1), m23$umax, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(4, length(m26$umax)), amount = 0.1), m26$umax, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+
+# Total mutants: sinR
+points(jitter(rep(6, length(m17$umax)), amount = 0.1), m17$umax, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(7, length(m19$umax)), amount = 0.1), m17$umax, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(8, length(m21$umax)), amount = 0.1), m21$umax, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(9, length(m41$umax)), amount = 0.1), m41$umax, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(10, length(m54$umax)), amount = 0.1), m54$umax, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+
+# Total mutants: ywcC 
+points(jitter(rep(12, length(m4$umax)), amount = 0.1), m4$umax, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(13, length(m13$umax)), amount = 0.1), m13$umax, pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+points(jitter(rep(14, length(m79$umax)), amount = 0.1), m79$umax,pch = 21, 
+       bg = "grey75", col = "grey75", lwd = 2, cex = 1.7)
+
+# Add means
+points(1, anc.mean[2], pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(3, m23.mean[2], pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2)  
+points(4, m26.mean[2], pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(6, m17.mean[2], pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(7, m19.mean[2], pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(8, m21.mean[2], pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(9, m41.mean[2], pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(10, m54.mean[2], pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(12, m4.mean[2], pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(13, m13.mean[2], pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+points(14, m79.mean[2], pch = 21, col = "black", 
+       bg = "NA", lwd = 2, cex = 2) 
+
+arrows(x0 = c(1, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14), y0 = as.numeric(c(anc.mean[2], m23.mean[2], 
+      m26.mean[2], m17.mean[2], m19.mean[2], m21.mean[2], m41.mean[2], m54.mean[2], 
+      m4.mean[2], m13.mean[2], m79.mean[2])), y1 = as.numeric(c(anc.95UL[2], m23.95UL[2], 
+      m26.95UL[2], m17.95UL[2], m19.95UL[2], m21.95UL[2], m41.95UL[2], 
+      m54.95UL[2], m4.95UL[2], m13.95UL[2], m79.95UL[2])), angle = 90, length = 0.1, lwd = 2)
+       
+arrows(x0 = c(1, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14), y0 = as.numeric(c(anc.mean[2], m23.mean[2], 
+      m26.mean[2], m17.mean[2], m19.mean[2], m21.mean[2], m41.mean[2], m54.mean[2], 
+      m4.mean[2], m13.mean[2], m79.mean[2])), y1 = as.numeric(c(anc.95LL[2], m23.95LL[2], 
+      m26.95LL[2], m17.95LL[2], m19.95LL[2], m21.95LL[2], m41.95LL[2], 
+      m54.95LL[2], m4.95LL[2], m13.95LL[2], m79.95LL[2])), angle = 90, length = 0.1, lwd = 2)
+
+# Add axes
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
+     labels = c("0.050", "0.075", "0.100"), at = c(0.05, 0.075, 0.100))
+
+axis(side = 4, lwd.ticks = 2, cex.axis = 1.25, las = 1,
+     at=c(0.05, 0.075, 0.100), labels = F)
+
+axis(side = 3, lwd.ticks = 2, cex.axis = 1, las = 1,
+     at = c(1, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14), labels = F)
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 3,
+     labels = c("anc", "m23", "m26", "m17", "m19", "m21", "m41", "m54", "m4",
+    "m13", "m79"), at = c(1, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14), col.axis = "grey80")
+
+# Add y-axis label
+mtext(expression('Maximum growth rate (d'^-1*')'), side = 2,
+      outer = FALSE, cex = 1.25, line = 3.6, adj = 0.5)
+
+# Add x-axis labels
+mtext('Ancestor', side = 1, line = 6.25, at = 1, cex = 0.95, col = "grey80")
+segments(0.25, 0.0085, 1.75, 0.0085, col = "grey80", lwd = 2, xpd = TRUE)
+
+mtext('Evolved', side = 1, line = 6.25, at = 8.5, cex = 0.95, col = "grey80")
+segments(2.75, 0.0085, 14.25, 0.0085, col = "grey80", lwd = 2, xpd = TRUE)
+
+mtext('Spore', side = 1, line = 4.5, at = 3.5, cex = 0.95, col = "grey80")
+segments(2.75, 0.0185, 4.25, 0.0185, col = "grey80", lwd = 2, xpd = TRUE)
+
+mtext('Total', side = 1, line = 4.5, at = 10.5, cex = 0.95, col = "grey80")
+segments(5.75, 0.0185, 14.25, 0.0185, col = "grey80", lwd = 2, xpd = TRUE)
+
+mtext(expression(italic("sinR")), side = 1, line = 2.95, at = 8, cex = 0.95, col = "grey80")
+segments(5.75, 0.0295, 10.25, 0.0295, col = "grey80", lwd = 2, xpd = TRUE)
+
+mtext(expression(italic("ywcC")), side = 1, line = 2.95, at = 13, cex = 0.95, col = "grey80")
+segments(11.75, 0.0295, 14.25, 0.0295, col = "grey80", lwd = 2, xpd = TRUE)
+
+# Close Plot Device
+dev.off()
+graphics.off()
+
+# Show Plot
+img <- readPNG("~/GitHub/SporeMut/output/growth.umax.png")
+
+grid.raster(img)
+
 ```
