@@ -36,6 +36,9 @@ UL.95 <- function(x) t.test(x)$conf.int[2]
 dat <- read.csv("~/Github/SporeMut/code/4.GrowthCurves/data/batch_combo.csv")
 dat$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat$Time))
 dat <- cbind(dat1,dat2)
+
+anc <-read.csv("~/Github/SporeMut/code/4.GrowthCurves/data/ancestor.csv")
+anc$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", anc$Time))
 ```
 
 # Run Gompertz model
@@ -45,14 +48,21 @@ dat <- cbind(dat1,dat2)
 #        synergy = F, temp = F, smooth = T, trim = T)
 fits.out <- read.table("../output/fit.parms.txt", sep = ",", header = TRUE)
 treats <- read.csv("../data/treatments.csv")
-parms <- data.frame(treats, fits)
+parms <- data.frame(treats, fits.out)
 head(parms)
+
+#fits.anc <- growth.modGomp(input = anc, output.name = "fit.anc.parms",
+#        synergy = F, temp = F, smooth = T, trim = T)
+fits.anc.out <- read.table("../output/fit.anc.parms.txt", sep = ",", header = TRUE)
+treat.anc <- read.csv("../data/treatments.anc.csv")
+anc.parms <- data.frame(treat.anc, fits.anc.out)
 ```
 
 # Wrangle into treatments
 ```{r}
 # Ancestor
-anc <- parms %>% filter(evo.type == "anc")
+#anc <- parms %>% filter(evo.type == "anc") # before measuring ancestor on 11 June 23
+anc <- anc.parms %>% filter(evo.type == "anc")
 anc.mean <- anc %>% summarize(mean_A = mean(A), mean_umax = mean(umax), 
             mean_L = mean(L))
 anc.sem <- anc %>% summarize(sem_A = sem(A), sem_umax = sem(umax), 
@@ -179,8 +189,8 @@ par(mar = c(7, 7, 5, 7), plt = c(0.2, 0.85, 0.45, 0.85))
 
 # Add individuals points
 anc.pt <- plot(jitter(rep(1, length(anc$umax)), amount = 0.1), anc$umax, 
-      ylim = c(0.05, 0.1), xlim = c(0.5, 15), pch = 21, col = "grey90", 
-      bg = "grey90", lwd = 2,
+      ylim = c(0.02, 0.1), xlim = c(0.5, 15), pch = 21, col = "grey75", 
+      bg = "grey75", lwd = 2,
       cex = 1.7, yaxt = "n", xaxt = "n", cex.lab = 2, cex.axis = 1.5,
       las = 1, ylab = "", xlab = "")
       box(lwd = 2)
@@ -249,10 +259,10 @@ arrows(x0 = c(1, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14), y0 = as.numeric(c(anc.mean[2
 
 # Add axes
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.25, las = 1,
-     labels = c("0.050", "0.075", "0.100"), at = c(0.05, 0.075, 0.100))
+     labels = c("0.025", "0.050", "0.075", "0.100"), at = c(0.025, 0.05, 0.075, 0.100))
 
 axis(side = 4, lwd.ticks = 2, cex.axis = 1.25, las = 1,
-     at=c(0.05, 0.075, 0.100), labels = F)
+     at=c(0.025, 0.05, 0.075, 0.100), labels = F)
 
 axis(side = 3, lwd.ticks = 2, cex.axis = 1, las = 1,
      at = c(1, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14), labels = F)
@@ -263,26 +273,26 @@ axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 3,
 
 # Add y-axis label
 mtext(expression('Maximum growth rate (d'^-1*')'), side = 2,
-      outer = FALSE, cex = 1.25, line = 3.6, adj = 0.5)
+      outer = FALSE, cex = 1.25, line = 4.5, adj = 0.5)
 
 # Add x-axis labels
 mtext('Ancestor', side = 1, line = 6.25, at = 1, cex = 0.95, col = "grey80")
-segments(0.25, 0.0085, 1.75, 0.0085, col = "grey80", lwd = 2, xpd = TRUE)
+segments(0.25, -0.047, 1.75, -0.047, col = "grey80", lwd = 2, xpd = TRUE)
 
 mtext('Evolved', side = 1, line = 6.25, at = 8.5, cex = 0.95, col = "grey80")
-segments(2.75, 0.0085, 14.25, 0.0085, col = "grey80", lwd = 2, xpd = TRUE)
+segments(2.75, -0.047, 14.25, -0.047, col = "grey80", lwd = 2, xpd = TRUE)
 
 mtext('Spore', side = 1, line = 4.5, at = 3.5, cex = 0.95, col = "grey80")
-segments(2.75, 0.0185, 4.25, 0.0185, col = "grey80", lwd = 2, xpd = TRUE)
+segments(2.75, -0.03, 4.25, -0.03, col = "grey80", lwd = 2, xpd = TRUE)
 
 mtext('Total', side = 1, line = 4.5, at = 10.5, cex = 0.95, col = "grey80")
-segments(5.75, 0.0185, 14.25, 0.0185, col = "grey80", lwd = 2, xpd = TRUE)
+segments(5.75, -0.03, 14.25, -0.03, col = "grey80", lwd = 2, xpd = TRUE)
 
 mtext(expression(italic("sinR")), side = 1, line = 2.95, at = 8, cex = 0.95, col = "grey80")
-segments(5.75, 0.0295, 10.25, 0.0295, col = "grey80", lwd = 2, xpd = TRUE)
+segments(5.75, -0.013, 10.25, -0.013, col = "grey80", lwd = 2, xpd = TRUE)
 
 mtext(expression(italic("ywcC")), side = 1, line = 2.95, at = 13, cex = 0.95, col = "grey80")
-segments(11.75, 0.0295, 14.25, 0.0295, col = "grey80", lwd = 2, xpd = TRUE)
+segments(11.75, -0.013, 14.25, -0.013, col = "grey80", lwd = 2, xpd = TRUE)
 
 # Close Plot Device
 dev.off()
