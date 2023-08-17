@@ -33,29 +33,144 @@ UL.95 <- function(x) t.test(x)$conf.int[2]
 # Load data
 ```{r}
 # Load data and change time to numeric
-dat <- read.csv("~/Github/SporeMut/code/4.GrowthCurves/data/batch_combo.csv")
-dat$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat$Time))
-dat <- cbind(dat1,dat2)
+# dat <- read.csv("~/Github/SporeMut/code/4.GrowthCurves/data/batch_combo.csv")
+# dat <- cbind(dat1,dat2)
+# anc <-read.csv("~/Github/SporeMut/code/4.GrowthCurves/data/ancestor.csv")
+# anc$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", anc$Time))
 
-anc <-read.csv("~/Github/SporeMut/code/4.GrowthCurves/data/ancestor.csv")
-anc$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", anc$Time))
+dat <- read.csv("~/Github/SporeMut/code/4.GrowthCurves/data/20230802_GrowthCurve_SporeMut.csv")
+dat$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat.raw$Time))
+# filter so length of data is equal across strains
+dat <- dat.raw %>% 
+ filter(row_number() <= 93) 
 ```
 
 # Run Gompertz model
 ```{r}
 # Slow process: comment out line below after running
-# fits <- growth.modGomp(input = dat, output.name = "fit.parms",
-#        synergy = F, temp = F, smooth = T, trim = T)
-fits.out <- read.table("../output/fit.parms.txt", sep = ",", header = TRUE)
+# Here, read in each strain one-at-a-time (helps with troubleshooting fits)
+
+anc <- dat %>%
+  select(Time, starts_with("A_"))
+anc.fits <-growth.modGomp(input = anc, output.name = "anc.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+anc.fits.out <- read.table("../output/anc.fit.parms.txt", sep = ",", header = TRUE)
+
+S1 <- dat %>%
+  select(Time, starts_with("S1_"))
+S1.fits <-growth.modGomp(input = S1, output.name = "S1.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+S1.fits.out <- read.table("../output/S1.fit.parms.txt", sep = ",", header = TRUE)
+
+S6 <- dat %>%
+  select(Time, starts_with("S6_"))
+S6.fits <-growth.modGomp(input = S6, output.name = "S6.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+S6.fits.out <- read.table("../output/S6.fit.parms.txt", sep = ",", header = TRUE)
+
+S11 <- dat %>%
+  select(Time, starts_with("S11_"))
+S11.fits <-growth.modGomp(input = S11, output.name = "S11.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+S11.fits.out <- read.table("../output/S11.fit.parms.txt", sep = ",", header = TRUE)
+
+S22 <- dat %>%
+  select(Time, starts_with("S22_"))
+S22.fits <-growth.modGomp(input = S22, output.name = "S22.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+S22.fits.out <- read.table("../output/S22.fit.parms.txt", sep = ",", header = TRUE)
+
+S51 <- dat %>%
+  select(Time, starts_with("S51_"))
+S51.fits <-growth.modGomp(input = S51, output.name = "S51.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+S51.fits.out <- read.table("../output/S51.fit.parms.txt", sep = ",", header = TRUE)
+
+S95 <- dat %>%
+  select(Time, starts_with("S95_"))
+S95.fits <-growth.modGomp(input = S95, output.name = "S95.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+S95.fits.out <- read.table("../output/S95.fit.parms.txt", sep = ",", header = TRUE)
+
+M4 <- dat %>%
+  select(Time, starts_with("M4_"))
+M4.fits <-growth.modGomp(input = M4, output.name = "M4.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+M4.fits.out <- read.table("../output/M4.fit.parms.txt", sep = ",", header = TRUE)
+
+M13 <- dat %>%
+  select(Time, starts_with("M13_"))
+M13.fits <-growth.modGomp(input = M13, output.name = "M13.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+M13.fits.out <- read.table("../output/M13.fit.parms.txt", sep = ",", header = TRUE)
+
+M17 <- dat %>%
+  select(Time, starts_with("M17_"))
+M17.fits <-growth.modGomp(input = M17, output.name = "M17.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+M17.fits.out <- read.table("../output/M17.fit.parms.txt", sep = ",", header = TRUE)
+
+M19 <- dat %>%
+  select(Time, starts_with("M19_"))
+M19.fits <-growth.modGomp(input = M19, output.name = "M19.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+M19.fits.out <- read.table("../output/M19.fit.parms.txt", sep = ",", header = TRUE)
+
+M21 <- dat %>%
+  select(Time, starts_with("M21_"))
+M21.fits <-growth.modGomp(input = M21, output.name = "M21.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+M21.fits.out <- read.table("../output/M21.fit.parms.txt", sep = ",", header = TRUE)
+
+M23 <- dat %>%
+  select(Time, starts_with("M23_"))
+M23.fits <-growth.modGomp(input = M23, output.name = "M23.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+M23.fits.out <- read.table("../output/M23.fit.parms.txt", sep = ",", header = TRUE)
+
+M26 <- dat %>%
+  select(Time, starts_with("M26_"))
+M26.fits <-growth.modGomp(input = M26, output.name = "M26.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+M26.fits.out <- read.table("../output/M26.fit.parms.txt", sep = ",", header = TRUE)
+
+M41 <- dat %>%
+  select(Time, starts_with("M41_"))
+M41.fits <-growth.modGomp(input = M41, output.name = "M41.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+M41.fits.out <- read.table("../output/M41.fit.parms.txt", sep = ",", header = TRUE)
+
+M54 <- dat %>%
+  select(Time, starts_with("M54_"))
+M54.fits <-growth.modGomp(input = M54, output.name = "M54.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+M54.fits.out <- read.table("../output/M54.fit.parms.txt", sep = ",", header = TRUE)
+
+M79 <- dat %>%
+  select(Time, starts_with("M79_"))
+M79 <- fits <-growth.modGomp(input = M79, output.name = "M79.fit.parms",
+        synergy = F, temp = F, smooth = T, trim = T)
+M79.fits.out <- read.table("../output/M79.fit.parms.txt", sep = ",", header = TRUE)
+
+
+
+# Combine fits for each strain and replicate
+all.fits <- rbind(anc.fits.out, S1.fits.out, S6.fits.out, S11.fits.out, 
+            S22.fits.out, S51.fits.out, S95.fits.out, M4.fits.out,
+            M13.fits.out, M17.fits.out, M19.fits.out, M21.fits.out,
+            M23.fits.out, M26.fits.out, M41.fits.out, M54.fits.out,
+            M79.fits.out)
+
+# Combine fits with strain and treatment information (e.g, cell type, mutations, etc.)
 treats <- read.csv("../data/treatments.csv")
-parms <- data.frame(treats, fits.out)
+parms <- data.frame(treats, all.fits) # this doesn't work, probably because some of the fits didn't converge?
 head(parms)
 
 #fits.anc <- growth.modGomp(input = anc, output.name = "fit.anc.parms",
 #        synergy = F, temp = F, smooth = T, trim = T)
-fits.anc.out <- read.table("../output/fit.anc.parms.txt", sep = ",", header = TRUE)
-treat.anc <- read.csv("../data/treatments.anc.csv")
-anc.parms <- data.frame(treat.anc, fits.anc.out)
+#fits.anc.out <- read.table("../output/fit.anc.parms.txt", sep = ",", header = TRUE)
+#treat.anc <- read.csv("../data/treatments.anc.csv")
+#anc.parms <- data.frame(treat.anc, fits.anc.out)
 ```
 
 # Wrangle into treatments
