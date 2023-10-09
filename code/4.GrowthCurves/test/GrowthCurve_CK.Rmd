@@ -32,6 +32,12 @@ sem <- function(x) sqrt(var(x)/length(x))
 cv <- function(x) 100*( sd(x)/mean(x))
 LL.95 <- function(x) t.test(x)$conf.int[1]
 UL.95 <- function(x) t.test(x)$conf.int[2]
+
+require(tidyverse)
+require(ggh4x) #ggplot tricks 
+require(emmeans) #marginal means
+require(multcomp) #multiple comparisons
+require(multcompView)
 ```
 
 # Load data
@@ -61,7 +67,7 @@ dat4$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat4$Time))
 dat5$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat5$Time))
 ```
 
-# Run Gompertz model
+# Run Gompertz model - Do not run if you already have the outputs - Read outputs
 ```{r}
 # Slow process: comment out line below after running
 # Here, read in each strain one-at-a-time (helps with troubleshooting fits)
@@ -70,13 +76,11 @@ anc <- dat %>%
   select(Time, starts_with("ancestor"))
 anc.fits <-growth.modGomp(input = anc, output.name = "anc_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-anc.fits.out <- read.table("../output/anc_new.fit.parms.txt", sep = ",", header = TRUE)
 
 M4 <- dat %>%
   select(Time, starts_with("M4_"))
 M4.fits <-growth.modGomp(input = M4, output.name = "M4_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M4.fits.out <- read.table("../output/M4_new.fit.parms.txt", sep = ",", header = TRUE)
 
 S1 <- dat %>%
   select(Time, starts_with("S1_"))
@@ -88,19 +92,16 @@ M23 <- dat %>%
   select(Time, starts_with("M23_"))
 M23.fits <-growth.modGomp(input = M23, output.name = "M23_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M23.fits.out <- read.table("../output/M23_new.fit.parms.txt", sep = ",", header = TRUE)
 
 M13 <- dat2 %>%
   select(Time, starts_with("M13_"))
 M13.fits <-growth.modGomp(input = M13, output.name = "M13_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M13.fits.out <- read.table("../output/M13_new.fit.parms.txt", sep = ",", header = TRUE)
 
 M17 <- dat2 %>%
   select(Time, starts_with("M17_"))
 M17.fits <-growth.modGomp(input = M17, output.name = "M17_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M17.fits.out <- read.table("../output/M17_new.fit.parms.txt", sep = ",", header = TRUE)
 
 M19 <- dat2 %>%
   select(Time, starts_with("M19_"))
@@ -112,31 +113,26 @@ M21 <- dat2 %>%
   select(Time, starts_with("M21_"))
 M21.fits <-growth.modGomp(input = M21, output.name = "M21_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M21.fits.out <- read.table("../output/M21_new.fit.parms.txt", sep = ",", header = TRUE)
 
 M26 <- dat2 %>%
   select(Time, starts_with("M26_"))
 M26.fits <-growth.modGomp(input = M26, output.name = "M26_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M26.fits.out <- read.table("../output/M26_new.fit.parms.txt", sep = ",", header = TRUE)
 
 M41 <- dat2 %>%
   select(Time, starts_with("M41_"))
 M41.fits <-growth.modGomp(input = M41, output.name = "M41_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M41.fits.out <- read.table("../output/M41_new.fit.parms.txt", sep = ",", header = TRUE)
 
 M54 <- dat2 %>%
   select(Time, starts_with("M54_"))
 M41.fits <-growth.modGomp(input = M54, output.name = "M54_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M54.fits.out <- read.table("../output/M54_new.fit.parms.txt", sep = ",", header = TRUE)
 
 M79 <- dat2 %>%
   select(Time, starts_with("M79_"))
 M79.fits <-growth.modGomp(input = M79, output.name = "M79_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M79.fits.out <- read.table("../output/M79_new.fit.parms.txt", sep = ",", header = TRUE)
 
 S6 <- dat2 %>%
   select(Time, starts_with("S6_"))
@@ -148,25 +144,21 @@ S11 <- dat2 %>%
   select(Time, starts_with("S11_"))
 S11.fits <-growth.modGomp(input = S11, output.name = "S11_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-S11.fits.out <- read.table("../output/S11_new.fit.parms.txt", sep = ",", header = TRUE)
 
 S22 <- dat3 %>%
   select(Time, starts_with("S22_"))
 S22.fits <-growth.modGomp(input = S22, output.name = "S22_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-S22.fits.out <- read.table("../output/S22_new.fit.parms.txt", sep = ",", header = TRUE)
 
 S51 <- dat3 %>%
   select(Time, starts_with("S51_"))
 S51.fits <-growth.modGomp(input = S51, output.name = "S51_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-S51.fits.out <- read.table("../output/S51_new.fit.parms.txt", sep = ",", header = TRUE)
 
 S95 <- dat3 %>%
   select(Time, starts_with("S95_"))
 S95.fits <-growth.modGomp(input = S95, output.name = "S95_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-S95.fits.out <- read.table("../output/S95_new.fit.parms.txt", sep = ",", header = TRUE)
 
 #fits.anc <- growth.modGomp(input = anc, output.name = "fit.anc.parms",
 #        synergy = F, temp = F, smooth = T, trim = T)
@@ -174,101 +166,127 @@ S95.fits.out <- read.table("../output/S95_new.fit.parms.txt", sep = ",", header 
 #treat.anc <- read.csv("../data/treatments.anc.csv")
 #anc.parms <- data.frame(treat.anc, fits.anc.out)
 ```
-# Repeated growth curves
+
+# Read outputs
+```{r}
+M4.fits.out  <- read.table("../output/M4_new.fit.parms.txt", sep = ",", header = TRUE)
+anc.fits.out <- read.table("../output/anc_new.fit.parms.txt", sep = ",", header = TRUE)
+M23.fits.out <- read.table("../output/M23_new.fit.parms.txt", sep = ",", header = TRUE)
+M13.fits.out <- read.table("../output/M13_new.fit.parms.txt", sep = ",", header = TRUE)
+M17.fits.out <- read.table("../output/M17_new.fit.parms.txt", sep = ",", header = TRUE)
+M19.fits.out <- read.table("../output/M19_new.fit.parms.txt", sep = ",", header = TRUE)
+M21.fits.out <- read.table("../output/M21_new.fit.parms.txt", sep = ",", header = TRUE)
+M26.fits.out <- read.table("../output/M26_new.fit.parms.txt", sep = ",", header = TRUE)
+M54.fits.out <- read.table("../output/M54_new.fit.parms.txt", sep = ",", header = TRUE)
+M41.fits.out <- read.table("../output/M41_new.fit.parms.txt", sep = ",", header = TRUE)
+M79.fits.out <- read.table("../output/M79_new.fit.parms.txt", sep = ",", header = TRUE)
+S1.fits.out  <- read.table("../output/S1_new.fit.parms.txt", sep = ",", header = TRUE)
+S6.fits.out  <- read.table("../output/S1_new.fit.parms.txt", sep = ",", header = TRUE)
+S11.fits.out <- read.table("../output/S11_new.fit.parms.txt", sep = ",", header = TRUE)
+S22.fits.out <- read.table("../output/S22_new.fit.parms.txt", sep = ",", header = TRUE)
+S51.fits.out <- read.table("../output/S51_new.fit.parms.txt", sep = ",", header = TRUE)
+S95.fits.out <- read.table("../output/S95_new.fit.parms.txt", sep = ",", header = TRUE)
+```
+
+# Repeated growth curves 
 ```{r}
 # Repeated growth curves 
 M13.R <- dat4 %>%
   select(Time, starts_with("M13_"))
 M13.R.fits <-growth.modGomp(input = M13.R, output.name = "M13_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M13.R.fits.out <- read.table("../output/M13_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 M17.R <- dat4 %>%
   select(Time, starts_with("M17_"))
 M17.R.fits <-growth.modGomp(input = M17.R, output.name = "M17_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M17.R.fits.out <- read.table("../output/M17_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 M21.R <- dat4 %>%
   select(Time, starts_with("M21_"))
 M21.R.fits <-growth.modGomp(input = M21.R, output.name = "M21_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M21.R.fits.out <- read.table("../output/M21_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 M23.R <- dat4 %>%
   select(Time, starts_with("M23_"))
 M23.R.fits <-growth.modGomp(input = M23.R, output.name = "M23_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M23.R.fits.out <- read.table("../output/M23_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 M54.R <- dat4 %>%
   select(Time, starts_with("M54_"))
 M54.R.fits <-growth.modGomp(input = M54.R, output.name = "M54_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M54.R.fits.out <- read.table("../output/M54_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 S1.R <- dat4 %>%
   select(Time, starts_with("S1_"))
 S1.R.fits <-growth.modGomp(input = S1.R, output.name = "S1_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-S1.R.fits.out <- read.table("../output/S1_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 S11.R <- dat4 %>%
   select(Time, starts_with("S11_"))
 S11.R.fits <-growth.modGomp(input = S11.R, output.name = "S11_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-S11.R.fits.out <- read.table("../output/S11_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 S22.R <- dat4 %>%
   select(Time, starts_with("S22_"))
 S22.R.fits <-growth.modGomp(input = S22.R, output.name = "S22_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-S22.R.fits.out <- read.table("../output/S22_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 S51.R <- dat4 %>%
   select(Time, starts_with("S51_"))
 S51.R.fits <-growth.modGomp(input = S51.R, output.name = "S51_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-S51.R.fits.out <- read.table("../output/S51_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 S95.R <- dat4 %>%
   select(Time, starts_with("S95_"))
 S95.R.fits <-growth.modGomp(input = S95.R, output.name = "S95_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-S95.R.fits.out <- read.table("../output/S95_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 M4.R <- dat5 %>%
   select(Time, starts_with("M4_"))
 M4.R.fits <-growth.modGomp(input = M4.R, output.name = "M4_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M4.R.fits.out <- read.table("../output/M4_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 M19.R <- dat5 %>%
   select(Time, starts_with("M19_"))
 M19.R.fits <-growth.modGomp(input = M19.R, output.name = "M19_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M19.R.fits.out <- read.table("../output/M19_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 M23.R2 <- dat5 %>%
   select(Time, starts_with("M23_"))
 M23.R2.fits <-growth.modGomp(input = M23.R2, output.name = "M23_repeat2.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M23.R2.fits.out <- read.table("../output/M23_repeat2.new.fit.parms.txt", sep = ",", header = TRUE)
 
 M26.R <- dat5 %>%
   select(Time, starts_with("M26_"))
 M26.R.fits <-growth.modGomp(input = M26.R, output.name = "M26_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M26.R.fits.out <- read.table("../output/M26_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 
 M41.R <- dat5 %>%
   select(Time, starts_with("M41_"))
 M41.R.fits <-growth.modGomp(input = M41.R, output.name = "M41_repeat.new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
-M41.R.fits.out <- read.table("../output/M41_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
 ```
 
-# Subset the best 6 curves of each clone
+# Read repeated outputs 
+```{r}
+M13.R.fits.out  <- read.table("../output/M13_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+M17.R.fits.out  <- read.table("../output/M17_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+M21.R.fits.out  <- read.table("../output/M21_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+M23.R.fits.out  <- read.table("../output/M23_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+M54.R.fits.out  <- read.table("../output/M54_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+S1.R.fits.out   <- read.table("../output/S1_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+S11.R.fits.out  <- read.table("../output/S11_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+S22.R.fits.out  <- read.table("../output/S22_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+S51.R.fits.out  <- read.table("../output/S51_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+S95.R.fits.out  <- read.table("../output/S95_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+M4.R.fits.out   <- read.table("../output/M4_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+M19.R.fits.out  <- read.table("../output/M19_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+M23.R2.fits.out <- read.table("../output/M23_repeat2.new.fit.parms.txt", sep = ",", header = TRUE)
+M26.R.fits.out  <- read.table("../output/M26_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+M41.R.fits.out  <- read.table("../output/M41_repeat.new.fit.parms.txt", sep = ",", header = TRUE)
+```
+
+# Subset the best 6 curves of each clone based on RMSE
 ```{r}
 # Subset the best 6 curves of each clone 
 # Removing non fitting models and and selecting 6 of them 
@@ -310,6 +328,7 @@ dflist_best <- lapply(dflist, bestCurve)
 
 ```
 
+# Merge with treatment data
 ```{r}
 all.fits <- bind_rows(dflist_best, .id = "column_label")
 
@@ -317,77 +336,47 @@ all.fits$clones <- gsub("_.*","",all.fits$Curve)
 all.fits$clones[1:6] <- rep("ancestor", time = 6)
 
 # Combine fits with strain and treatment information (e.g, cell type, mutations, etc.)
-treats <- read.csv("../data/treatments.csv")
-treats_cut <- treats[-c(7:12),]
-parms <- data.frame(treats_cut, all.fits) # this doesn't work, probably because some of the fits didn't converge?
-#It is because some clones have different amount of reps 
-#head(parms)
+treats <- read.csv("~/Github/SporMut/code/4.GrowthCurves/data/treatments_original_corrected.csv")
 
+# The correct file is treatments_original.csv, I added ancestor and changed some factor level names and
+# saved as treatments_original_corrected.csv
+#parms <- data.frame(treats, all.fits) 
+# this doesn't work, probably because some of the fits didn't converge?
+# It is because some clones have different amount of reps 
+# Also it is the wrong file.  
+# Another thing I'd avoid cbind. Safest way is binding with ID column
+
+all.fits.treats <- all.fits %>%
+  left_join(treats, by = "clones")
 ```
 
-# dplyr ggplot version - Canan
+# dplyr/ggplot version - Canan
 ```{r}
 # column
-library(ggplot2)
-library(ggh4x)
+# filter spores
+treats_param <-  all.fits.treats %>%
+  filter(!evo.type == "spore") %>%
+mutate(clone = tolower(clones)) 
 
-treats_param <-  parms %>%
-  mutate(treatment = case_when(
-      strain %in%  "A" ~ "ancestor",
-      strain %in%  c("M23","M26")  ~ "evolved_spore",
-      strain %in%  c("M17", "M19", "M21", "M41", "M54") ~ "sinR",
-      strain %in%  c("M4", "M13", "M79") ~ "ywcC",
-      strain %in%  c("S1","S6", "S11", "S22", "S51", "S95") ~ "spore"))%>%
-  filter(!treatment == "spore")%>%
-  mutate(evolved = case_when(
-      strain %in%  "ancestor" ~ "ancestor",
-      strain %in%  c("M23","M26", 
-                        "M17", "M19", "M21", "M41", "M54", 
-                        "M4", "M13", "M79")  ~ "evolved")) %>%
-  mutate(cell = case_when(
-      strain %in%  c("M23","M26") ~ "spore",
-      strain %in%  c( "M17", "M19", "M21", "M41", "M54", 
-                        "M4", "M13", "M79")  ~ "total"))
-
+# summarize 
 sum_treats_param <-  treats_param %>%
-      group_by(strain, treatment) %>%
+      group_by(clone, evo.type, cell.type, mutation) %>%
       summarize(mean_A = mean(A), mean_umax = mean(umax), 
             mean_L = mean(L), sem_A = sem(A), sem_umax = sem(umax), 
             sem_L = sem(L), LL.95_A = LL.95(A), LL.95_umax = LL.95(umax), 
             LL.95_L = LL.95(L), UL.95_A = UL.95(A), UL.95_umax = UL.95(umax), 
             UL.95_L = UL.95(L)) %>%
-  mutate(evolved = case_when(
-      strain %in%  "ancestor" ~ "ancestor",
-      strain %in%  c("M23","M26", 
-                        "M17", "M19", "M21", "M41", "M54", 
-                        "M4", "M13", "M79")  ~ "evolved")) %>%
-  mutate(cell = case_when(
-      strain %in%  c("M23","M26") ~ "spore",
-      strain %in%  c( "M17", "M19", "M21", "M41", "M54", 
-                        "M4", "M13", "M79")  ~ "total"))
+            ungroup()
 
+# order factor levels
+sum_treats_param$clone <- factor(sum_treats_param$clone, levels = c("ancestor", "m23","m26","m17", "m19", "m21", "m41", "m54", "m4", "m13", "m79")) 
 
-sum_treats_param$strain <- factor(sum_treats_param$strain, levels = c("A", "M23","M26","M17", "M19", "M21", "M41", "M54", "M4", "M13", "M79")) 
+treats_param$clone <- factor(treats_param$clone, levels = c("ancestor", "m23","m26","m17", "m19", "m21", "m41", "m54", "m4", "m13", "m79")) 
 
-sum_treats_param$strain <- recode (sum_treats_param$strain, 
-            A = 'anc',  M23 = 'm23',M26 = 'm26', M17 = 'm17', 
-            M19 = 'm19', M21 = 'm21', M41 = 'm41', M54 = 'm54', 
-            M4 = 'm4' , M13 = 'm13' , M79 = 'm79')
-
-treats_param$strain <- factor(treats_param$strain, levels = c("A", "M23","M26","M17", "M19", "M21", "M41", "M54", "M4", "M13", "M79")) 
-
-treats_param$strain <- recode (treats_param$strain, 
-            A = 'anc',  M23 = 'm23',M26 = 'm26', M17 = 'm17', 
-            M19 = 'm19', M21 = 'm21', M41 = 'm41', M54 = 'm54', 
-            M4 = 'm4' , M13 = 'm13' , M79 = 'm79')
-
-
-
-
-ggplot(sum_treats_param, aes(x = weave_factors(strain, treatment, evolved, cell), y = mean_umax, group = interaction(strain, treatment)))+
+ggplot(sum_treats_param, aes(x = weave_factors(clone, mutation, evo.type, cell.type), y = mean_umax, group = interaction(clone, mutation)))+
   geom_point(shape = 1, size = 4, color = "black", position = position_dodge(0.5))+
-  geom_point(data = treats_param, aes(x = weave_factors(strain, treatment, evolved, cell), y = umax, group = interaction(strain, treatment)), position = position_dodge(0.5), alpha = .3, size = 4, color = "grey")+
-  geom_errorbar(data = sum_treats_param, aes (ymin = (mean_umax - sem_umax), ymax = (mean_umax + sem_umax),group = interaction(strain, treatment)), width = .2, color = "black", position = position_dodge(0.5))+
+  geom_point(data = treats_param, aes(x = weave_factors(clone, mutation, evo.type, cell.type), y = umax, group = interaction(clone, mutation)), position = position_dodge(0.5), alpha = .3, size = 4, color = "grey")+
+  geom_errorbar(data = sum_treats_param, aes (ymin = (mean_umax - sem_umax), ymax = (mean_umax + sem_umax),group = interaction(clone, mutation)), width = .2, color = "black", position = position_dodge(0.5))+
   ylab("Maximum growth rate")+
   #scale_x_discrete(limits = level_order)+
   #facet_wrap(~treatment, ncol = 4, scales = "free_x", drop = TRUE)+
@@ -406,6 +395,95 @@ ggplot(sum_treats_param, aes(x = weave_factors(strain, treatment, evolved, cell)
     breaks = ~., seq_len(nrow(sum_treats_param)), labels = NULL))+
       guides(y.sec = guide_axis_manual(
     breaks = c(0.15, 0.13, 0.11, 0.09, 0.07), labels = NULL))
+```
+
+# Remake Megan's figure for the manuscript - Canan
+```{r}
+
+treats_param_long <- treats_param %>%
+  select(b0, A, umax, L, evo.type, cell.type, mutation, clone) %>%
+  pivot_longer(cols = c(b0, A, umax, L), names_to = "parameter", values_to = "value") %>%
+  mutate (mutation = recode(mutation, nomut = 'ancestor', spormut = 'spore'))
+
+treats_param_se <- treats_param %>%
+  select(b0.se, A.se, umax.se, L.se, mutation) %>%
+  pivot_longer(cols = c(b0.se, A.se, umax.se, L.se), names_to = "parameter", values_to = "value") %>%
+  group_by(mutation, parameter) %>%
+  summarise(meanerror = mean(value)) %>%
+  mutate (mutation = recode(mutation, nomut = 'ancestor', spormut = 'spore'))
+
+treats_param_sum <- treats_param_long %>%
+  group_by(mutation, parameter, evo.type, cell.type) %>%
+  summarise(meanvalue = mean(value)) %>%
+  ungroup() %>% 
+  bind_cols(meanerror = treats_param_se$meanerror) %>%
+  mutate (mutation = recode(mutation, nomut = 'ancestor', spormut = 'spore'))
+
+
+ggplot(treats_param_sum, aes(x = mutation, y = meanvalue, color = mutation))+
+  geom_jitter(data = treats_param_long, aes(x = mutation, y = value), alpha = .3)+
+  geom_point(aes(x = mutation, y = meanvalue), size = 5, shape = 1, stroke = 1)+
+  facet_wrap(~parameter, scales = "free")+
+  geom_errorbar(aes(ymin = (meanvalue - meanerror), 
+                 ymax = (meanvalue + meanerror)), width = .2, linewidth = 0.8)+
+  theme_bw()+
+  theme(legend.position = 'bottom')+
+  theme(axis.ticks.length=unit(.25, "cm"))+
+  theme(legend.title = element_blank(), legend.text = element_text(size=12))+
+  theme(axis.text = element_text(size = 14), 
+  axis.title.x = element_blank(), axis.title.y = element_text(size = 14))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(axis.text.x = element_blank())+
+  theme(strip.text.x = element_text(size = 14))+
+  scale_color_manual(values = c("#E64B35","#4DBBD5","#3C5488","#F39B7F"))
+  
+``` 
+
+
+# Stats - Canan
+```{r}
+mod1 <- aov(A ~ mutation+Error(clone), data = treats_param)
+summary(mod1)
+emm_mut1 <- emmeans(mod1, "mutation", weights = "cells")
+letter1 <- cld(emm_mut1, Letter = letters)
+
+mod2 <- aov(b0 ~ mutation+Error(clone), data = treats_param)
+summary(mod2)
+emm_mut2 <- emmeans(mod2, "mutation", weights = "cells")
+letter2 <- cld(emm_mut2, Letter = letters)
+
+mod3 <- aov(L ~ mutation+Error(clone), data = treats_param)
+summary(mod3)
+emm_mut3 <- emmeans(mod3, "mutation", weights = "cells")
+letter3 <- cld(emm_mut3, Letter = letters)
+
+mod4 <- aov(umax ~ mutation+Error(clone), data = treats_param)
+summary(mod4)
+emm_mut4 <- emmeans(mod4, "mutation", weights = "cells")
+letter4 <- cld(emm_mut4, Letter = letters)
+
+dataLetter <-c(letter1$.group, letter2$.group, letter3$.group, letter4$.group)
+
+treats_param_letter <- treats_param_sum %>%
+  bind_cols(letters = gsub(" ", "", dataLetter) )
+
+ggplot(treats_param_letter, aes(x = mutation, y = meanvalue, color = mutation))+
+  geom_jitter(data = treats_param_long, aes(x = mutation, y = value), alpha = .3)+
+  geom_point(aes(x = mutation, y = meanvalue), size = 5, shape = 1, stroke = 1)+
+  facet_wrap(~parameter, scales = "free")+
+  geom_errorbar(aes(ymin = (meanvalue - meanerror), 
+                 ymax = (meanvalue + meanerror)), width = .2, linewidth = 0.8)+
+  theme_bw()+
+  theme(legend.position = 'bottom')+
+  theme(axis.ticks.length=unit(.25, "cm"))+
+  theme(legend.title = element_blank(), legend.text = element_text(size=12))+
+  theme(axis.text = element_text(size = 14), 
+  axis.title.x = element_blank(), axis.title.y = element_text(size = 14))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(axis.text.x = element_blank())+
+  theme(strip.text.x = element_text(size = 14))+
+  scale_color_manual(values = c("#E64B35","#4DBBD5","#3C5488","#F39B7F"))+
+  geom_text(aes(label = letters, y = meanvalue + meanerror), vjust = -0.5, color = "black", size = 5, hjust = 0.5)
   
 ```
 
