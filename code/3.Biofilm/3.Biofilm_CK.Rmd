@@ -1,0 +1,292 @@
+---
+title: "Sporulation dynamics in response to extreme energy limitation"
+author: "Jay T. Lennon"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+header-includes:
+  - \usepackage{array}
+output: pdf_document
+geometry: margin=2.54cm
+editor_options: 
+  chunk_output_type: console
+---
+
+# Working dir & packages
+```{r}
+# Set working directory and load packages
+rm(list = ls())
+getwd()
+setwd("~/Github/SporMut/code/3.Biofilm")
+
+require("ggplot2")
+require("cowplot")
+require("reshape2")
+require("ggpubr")
+require("dplyr")
+require("scales")
+require("grid")
+require("png")
+
+require("rstan")
+require("devtools")
+install_github("paul-buerkner/brms")
+library(brms)
+devtools::install_github("strengejacke/sjstats")
+library(bayestestR)
+library(bayesplot)
+
+sem <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
+```
+
+# Load data
+```{r}
+BacillusBiofilm <- read.table("~/GitHub/SporMut/data/3.Biofilm/Biofilm_06_16_20.txt", sep= "\t", header = FALSE)
+```
+
+# Format data by plate
+```{r}
+###100 Lines
+Plate1BS<- BacillusBiofilm[which(BacillusBiofilm$V1=='plate1'),] 
+Plate2BS<- BacillusBiofilm[which(BacillusBiofilm$V1=='plate2'),] 
+
+names(Plate1BS)<- as.matrix(Plate1BS[1,])
+Plate1BS<- Plate1BS[-1,]
+Plate1BS[]<-lapply(Plate1BS,function(x) type.convert(as.character(x)))
+Plate1BS
+names(Plate2BS)<- as.matrix(Plate2BS[1,])
+Plate2BS<- Plate2BS[-1,]
+Plate2BS[]<-lapply(Plate2BS,function(x) type.convert(as.character(x)))
+Plate2BS
+
+Plate1BSMelt<-melt(Plate1BS,id=c("plate1", "Replicate"))
+names(Plate1BSMelt)<-c("Plate","Replicate","Sample","OD550")
+Plate1BSMelt
+
+Plate2BSMelt<-melt(Plate2BS,id=c("plate2", "Replicate"))
+names(Plate2BSMelt)<-c("Plate","Replicate","Sample","OD550")
+Plate2BSMelt
+```
+
+# Identify Samples
+```{r}
+#NonSpore <- BacillusCurveMelt$Sample %in% c("M4", "M13", "M17" , "M19", "M21", "M41", "M54", "M79")
+#Spore<-BacillusCurveMelt$Sample %in% c( "M23", "M26", "S1", "S6", "S11", "S22", "S51", "S95")
+
+Blank <- Plate1BSMelt$Sample %in% c("Blank1")
+Spore<-Plate1BSMelt$Sample %in% c( "M23", "M26")
+Vegetative<-Plate1BSMelt$Sample %in% c("M4", "M13", "M17" , "M19", "M21", "M41", "M54", "M79")
+Ancestor<-Plate1BSMelt$Sample %in% c( "Ancestor")
+sinR<-Plate1BSMelt$Sample %in% c("M17" , "M19", "M21", "M41", "M54")
+ywcC<-Plate1BSMelt$Sample %in% c("M4", "M13", "M79")
+
+Plate1BSMelt$Treatment[Blank] <- "Blank"
+Plate1BSMelt$Treatment[Spore] <- "Spore"
+Plate1BSMelt$Treatment[Vegetative] <- "Vegetative"
+Plate1BSMelt$Treatment[Ancestor] <- "Ancestor"
+Plate1BSMelt$BiofilmMut[Ancestor] <- "Ancestor"
+Plate1BSMelt$BiofilmMut[sinR] <- "Vegetative:sinR"
+Plate1BSMelt$BiofilmMut[ywcC] <- "Vegetative:ywcC/slrR"
+Plate1BSMelt$BiofilmMut[Spore] <- "Spore"
+Plate1BSMelt$BiofilmMut[Blank] <- "Blank"
+
+Plate1BSMelt
+
+Blank <- Plate2BSMelt$Sample %in% c("Blank1", "Blank2", "Blank3", "Blank4", "Blank5", "Blank6")
+Spore<-Plate2BSMelt$Sample %in% c( "S1", "S6","S22","S52","S95")
+
+Plate2BSMelt$Treatment[Blank] <- "Blank"
+Plate2BSMelt$Treatment[Spore] <- "Spore"
+Plate2BSMelt$BiofilmMut[Blank] <- "Blank"
+Plate2BSMelt$BiofilmMut[Spore] <- "Spore"
+
+Plate2BSMelt
+```
+
+# Correct OD for Blank
+```{r}
+Plate1BSBlankOnly<- Plate1BSMelt[which(Plate1BSMelt$Treatment=='Blank'),] 
+Plate2BSBlankOnly<- Plate1BSMelt[which(Plate1BSMelt$Treatment=='Blank'),] 
+
+Plate1BSMelt$BlankAvg<-median(Plate1BSBlankOnly$OD550)
+Plate2BSMelt$BlankAvg<-median(Plate2BSBlankOnly$OD550)
+
+Plate1BSMelt$OD550_Corrected<-Plate1BSMelt$OD550-Plate1BSMelt$BlankAvg
+Plate2BSMelt$OD550_Corrected<-Plate2BSMelt$OD550-Plate2BSMelt$BlankAvg
+
+Plate1BSMelt$OD550_Corrected[Plate1BSMelt$OD550_Corrected<=0] <- 0.00001
+Plate2BSMelt$OD550_Corrected[Plate2BSMelt$OD550_Corrected<=0] <- 0.00001
+```
+# Bayesian stats - Canan 
+```{r}
+set.seed(101423)
+biofilmData <- Plate1BSMelt %>%
+  mutate(mutation = case_when(
+    BiofilmMut == "Vegetative:ywcC/slrR" ~ "ywcC/slrR", 
+    BiofilmMut == "Vegetative:sinR" ~ "sinR",
+    BiofilmMut == "Spore" ~ "spore", 
+    BiofilmMut == "Ancestor" ~"ancestor")) %>%
+  filter(!BiofilmMut == "Blank") %>%
+  mutate(clones = gsub(pattern = '([[:upper:]])', perl = TRUE, replacement = '\\L\\1', Sample)) 
+
+biofilmData$clones <- factor(biofilmData$clones, levels = c("ancestor", 
+           "m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26"))
+
+write.csv(biofilmData, file = "biofil.csv", row.names = FALSE)
+
+summary(lm(OD550_Corrected ~ clones, biofilmData))
+
+get_prior(OD550_Corrected ~ 0 + clones,
+                    data = biofilmData, family = gaussian())
+
+prior1 <- prior(student_t(3, 0, 2.5), class = sigma)
+
+m1 <- brm(OD550_Corrected ~ clones, data = biofilmData,
+          family = "gaussian", prior = prior1)
+summary(m1)
+posterior_summary(m1)
+
+rr <- rope_range(m1)
+#-0.1 * sd(y), 0.1 * sd(y)
+result1 <- describe_posterior(m1, centrality = c("median", "mean"),
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                          test = c("equivalence_test", "p_direction", "p_significance"),
+                          rope_range = rr, 
+                          diagnostic = "Rhat")
+
+result2 <- equivalence_test(m1, 
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                          rope_range = rr)
+plot(result2, stack = FALSE)
+
+####################################################################################
+m2 <- brm(OD550_Corrected ~ mutation + (1|clones), data = biofilmData,
+          family = "gaussian")
+summary(m2)
+posterior_summary(m2)
+
+result2.1 <- describe_posterior(m1, centrality = c("median", "mean"),
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                          test = c("equivalence_test", "p_direction", "p_significance"),
+                          rope_range = rr, 
+                          diagnostic = "Rhat")
+
+result2.2 <- equivalence_test(m2, 
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                          rope_range = rr, 
+                          effects = "fixed")
+plot(result2.2)
+result2.3 <- equivalence_test(m2, 
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                          rope_range = rr, 
+                          effects = "random")
+```
+## Plots - Canan
+```{r}
+theme <- theme_bw()+
+  theme(legend.position = 'none')+
+  theme(axis.ticks.length = unit(.25, "cm"))+
+  theme(legend.text = element_text(size=12))+
+  theme(axis.text = element_text(size = 14), axis.title.y = element_text(size = 14), axis.title.x = element_text(size = 14))+
+  #theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(strip.text.x = element_text(size = 14))
+
+color_scheme_set("blue")
+
+pars <- c("b_Intercept", "b_clonesm4", "b_clonesm13", "b_clonesm79", "b_clonesm17", "b_clonesm19", "b_clonesm21", "b_clonesm41", "b_clonesm54", "b_clonesm23", "b_clonesm26")
+
+labels <- rev(c('m26','m23','m54','m41','m21','m19','m17','m79','m13','m4'))
+
+posteriorB1 <- as.array(m1)
+summary(m1)
+
+# Biofilm 
+B1 <- mcmc_areas(posteriorB1, pars = pars,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m1), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m1)[1], xmax = rope_range(m1)[2], ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  scale_y_discrete(labels = labels)+
+  scale_x_continuous(breaks = c(-0.5, 0, 0.5, 1, 1.5), labels = c(-1.5, 1, 1.5, 2, 2.5))+
+  xlab("Relative change")+
+ ggtitle("Biofilm - posterior distributions",
+"medians and 95% credible intervals")+theme
+ggsave("Biofilm-clones.pdf", B1, height = 5, width = 5)
+
+posteriorB2 <- as.array(m2)
+
+# Mixed effect model 
+pars_random <- c ("r_clones[m4,Intercept]", "r_clones[m13,Intercept]", "r_clones[m79,Intercept]", "r_clones[m17,Intercept]", "r_clones[m19,Intercept]", "r_clones[m21,Intercept]", "r_clones[m41,Intercept]", "r_clones[m54,Intercept]", "r_clones[m23,Intercept]", "r_clones[m26,Intercept]")  
+pars_fixed <- c("b_mutationspore", "b_mutationsinR", "b_mutationywcCDslrR") 
+
+labels_fixed <- rev(c('spore', 'sinR', 'ywcC/slrR'))
+
+# Random effects 
+B2_random <- mcmc_areas(posteriorB2, pars = pars_random,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m2), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m2)[1], xmax = rope_range(m2)[2], ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  scale_y_discrete(labels = labels)+
+  #scale_x_continuous(breaks = c(-0.1, 0, 0.1), labels = c(-1.1, 1, 1.1))+
+  xlab("Relative change")+
+ ggtitle("Biofilm-posterior distributions",
+"medians and 95% credible intervals (CI)")+
+  theme
+ggsave("biofilm-random.pdf", B2, height = 5, width = 5)
+
+equivalence_test(m2, effects = "fixed")
+equivalence_test(m2, effects = "random")
+
+# Fixed effects
+
+B2_fixed <- mcmc_areas(posteriorB2, pars = pars_fixed,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m2), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m2)[1], xmax = rope_range(m2)[2], ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  scale_y_discrete(labels = labels_fixed)+
+  scale_x_continuous(breaks = c(-2, 0, 2), labels = c(-3, 1, 3))+
+  xlab("Relative change")+
+ ggtitle("Biofilm-posterior distributions",
+"medians and 95% credible intervals (CI)")+
+  theme
+ggsave("biofilm-fixed.pdf", B2_random, height = 5, width = 5)
+
+```
+
+## Trade-off exploration 
+```{r}
+GrowthData <- read.table("~/Github/SporMut/code/4.GrowthCurves/test/growthData", sep= ",", header = TRUE)
+#BiofilmData
+
+GrowthData$clones <- GrowthData$clone
+GrowthData <- GrowthData %>% group_by(clones) %>% mutate(id = row_number()) %>% ungroup()
+
+#lengths are different 
+
+tradeoff <- biofilmData %>% 
+  dplyr::select(OD550, clones) %>% 
+  group_by(clones) %>% 
+  mutate(id = row_number()) %>%
+  left_join(GrowthData, by = c("clones", "id")) %>% 
+  ungroup()
+
+    ggplot(tradeoff, aes(y = log10(OD550+1), x = umax))+
+    geom_point()+
+      geom_smooth(method="loess")
+  
+
+```
+
