@@ -33,6 +33,7 @@ cv <- function(x) 100*( sd(x)/mean(x))
 LL.95 <- function(x) t.test(x)$conf.int[1]
 UL.95 <- function(x) t.test(x)$conf.int[2]
 
+# Update - Canan
 require(tidyverse) #ggplot,dplyr, dependencies  
 require(ggh4x) #ggplot tricks
 require(scales) #ggplot scaling axes
@@ -44,6 +45,15 @@ require(optimx) #optimizer for lmer
 require(afex) #for p values
 require(jtools) #plot model results
 require(patchwork) #to combine plots 
+
+# For Bayesian stats 
+require("rstan")
+require("devtools")
+install_github("paul-buerkner/brms")
+library(brms)
+devtools::install_github("strengejacke/sjstats")
+library(bayestestR)
+library(bayesplot) #plotting posteriors
 ```
 
 ## Load data
@@ -72,97 +82,96 @@ dat3$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat3$Time))
 dat4$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat4$Time))
 dat5$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat5$Time))
 ```
-
 ## Run Gompertz model - Do not run if you already have the outputs - Read outputs
 ```{r}
 # Slow process: comment out line below after running
 # Here, read in each strain one-at-a-time (helps with troubleshooting fits)
 
 anc <- dat %>%
-  select(Time, starts_with("ancestor"))
+  dplyr::select(Time, starts_with("ancestor"))
 anc.fits <-growth.modGomp(input = anc, output.name = "anc_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 M4 <- dat %>%
-  select(Time, starts_with("M4_"))
+  dplyr::select(Time, starts_with("M4_"))
 M4.fits <-growth.modGomp(input = M4, output.name = "M4_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 S1 <- dat %>%
-  select(Time, starts_with("S1_"))
+  dplyr::select(Time, starts_with("S1_"))
 S1.fits <-growth.modGomp(input = S1, output.name = "S1_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 S1.fits.out <- read.table("../output/S1_new.fit.parms.txt", sep = ",", header = TRUE)
 
 M23 <- dat %>%
-  select(Time, starts_with("M23_"))
+  dplyr::select(Time, starts_with("M23_"))
 M23.fits <-growth.modGomp(input = M23, output.name = "M23_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 M13 <- dat2 %>%
-  select(Time, starts_with("M13_"))
+  dplyr::select(Time, starts_with("M13_"))
 M13.fits <-growth.modGomp(input = M13, output.name = "M13_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 M17 <- dat2 %>%
-  select(Time, starts_with("M17_"))
+  dplyr::select(Time, starts_with("M17_"))
 M17.fits <-growth.modGomp(input = M17, output.name = "M17_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 M19 <- dat2 %>%
-  select(Time, starts_with("M19_"))
+  dplyr::select(Time, starts_with("M19_"))
 M19.fits <-growth.modGomp(input = M19, output.name = "M19_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 M19.fits.out <- read.table("../output/M19_new.fit.parms.txt", sep = ",", header = TRUE)
 
 M21 <- dat2 %>%
-  select(Time, starts_with("M21_"))
+  dplyr::select(Time, starts_with("M21_"))
 M21.fits <-growth.modGomp(input = M21, output.name = "M21_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 M26 <- dat2 %>%
-  select(Time, starts_with("M26_"))
+  dplyr::select(Time, starts_with("M26_"))
 M26.fits <-growth.modGomp(input = M26, output.name = "M26_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 M41 <- dat2 %>%
-  select(Time, starts_with("M41_"))
+  dplyr::select(Time, starts_with("M41_"))
 M41.fits <-growth.modGomp(input = M41, output.name = "M41_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 M54 <- dat2 %>%
-  select(Time, starts_with("M54_"))
+  dplyr::select(Time, starts_with("M54_"))
 M41.fits <-growth.modGomp(input = M54, output.name = "M54_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 M79 <- dat2 %>%
-  select(Time, starts_with("M79_"))
+  dplyr::select(Time, starts_with("M79_"))
 M79.fits <-growth.modGomp(input = M79, output.name = "M79_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 S6 <- dat2 %>%
-  select(Time, starts_with("S6_"))
+  dplyr::select(Time, starts_with("S6_"))
 S6.fits <-growth.modGomp(input = S6, output.name = "S6_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 S6.fits.out <- read.table("../output/S6_new.fit.parms.txt", sep = ",", header = TRUE)
 
 S11 <- dat2 %>%
-  select(Time, starts_with("S11_"))
+  dplyr::select(Time, starts_with("S11_"))
 S11.fits <-growth.modGomp(input = S11, output.name = "S11_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 S22 <- dat3 %>%
-  select(Time, starts_with("S22_"))
+  dplyr::select(Time, starts_with("S22_"))
 S22.fits <-growth.modGomp(input = S22, output.name = "S22_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 S51 <- dat3 %>%
-  select(Time, starts_with("S51_"))
+  dplyr::select(Time, starts_with("S51_"))
 S51.fits <-growth.modGomp(input = S51, output.name = "S51_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
 S95 <- dat3 %>%
-  select(Time, starts_with("S95_"))
+  dplyr::select(Time, starts_with("S95_"))
 S95.fits <-growth.modGomp(input = S95, output.name = "S95_new.fit.parms",
         synergy = F, temp = F, smooth = T, trim = T)
 
@@ -334,7 +343,7 @@ dflist_best <- lapply(dflist, bestCurve)
 
 ```
 
-## Merge with treatment data
+## Merge with treatment data - Fixed
 ```{r}
 all.fits <- bind_rows(dflist_best, .id = "column_label")
 
@@ -356,7 +365,7 @@ all.fits.treats <- all.fits %>%
   left_join(treats, by = "clones")
 ```
 
-## dplyr/ggplot version - Canan
+## Wrangle dplyr/ggplot version - Canan
 ```{r}
 # column
 # filter spores
@@ -364,6 +373,7 @@ treats_param <-  all.fits.treats %>%
   filter(!evo.type == "spore") %>%
 mutate(clone = tolower(clones)) %>%
   mutate (mutation = recode(mutation, nomut = 'ancestor', spormut = 'spore'))
+write.csv(treats_param, "growthData")
 
 # summarize 
 sum_treats_param <-  treats_param %>%
@@ -530,11 +540,6 @@ ggplot(dataPlotN, aes(x = mutation, y = mean), color ="grey20")+
 
 ## Stats - Canan - Clone comparisons 
 ```{r}
-treats_param$clone <- as.factor(treats_param$clone)
-treats_param$clone <- ordered(treats_param$clone, levels = c('ancestor', 'm4','m13','m17','m19','m21','m23','m26','m41','m54','m79'))
-contrasts(treats_param$clone) <- contr.treatment(11, base = 1)  # Treat Control as the reference level
-custom_contrasts_clone <- as.matrix(contrasts(treats_param$clone))
-
 K <- lm(A ~ clone, data = treats_param)
 summary(K)
 emm_m1 <- emmeans(K, ~clone)
@@ -606,6 +611,314 @@ plotLag <- plot_summs(lag, robust = T, plot.distributions = TRUE, colors = '#3C5
         axis.title.x=element_blank()))
 ```
 
+## Stats - Canan - BAYESIAN 
+```{r}
+# Clones as fixed factors
+# K
+bayesdata <- treats_param
+bayesdata$clone <- factor(bayesdata$clone, levels = c("ancestor", 
+           "m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26"))
+
+get_prior(A ~ 0 + clone, data = bayesdata, family = gaussian())
+
+prior1 <- prior(student_t(3, 0, 2.5), class = sigma)
+
+m1K <- brm(A ~ clone, data = bayesdata,
+          family = "gaussian", prior = prior1)
+summary(m1K)
+posterior_summary(m1K)
+
+rr <- rope_range(m1K)
+#-0.1 * sd(y), 0.1 * sd(y)
+result1K <- describe_posterior(m1K, centrality = c("median", "mean"),
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+            test = c("equivalence_test", "p_direction", "p_significance"),
+                          rope_range = rr, 
+                          diagnostic = "Rhat")
+result2K <- equivalence_test(m1K, 
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                          rope_range = rr,
+                          sort = NULL)
+plot(result2K)
+
+# umax
+m1umax <- brm(umax ~ clone, data = bayesdata,
+          family = "gaussian", prior = prior1)
+summary(m1umax)
+posterior_summary(m1umax)
+
+rr2 <- rope_range(m1umax)
+result1umax <- describe_posterior(m1umax, centrality = c("median", "mean"),
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                test = c("equivalence_test", "p_direction", "p_significance"),
+                          rope_range = rr2, 
+                          diagnostic = "Rhat")
+result2umax <- equivalence_test(m1umax, 
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                          rope_range = rr2)
+plot(result2umax)
+
+# L
+m1L <- brm(L ~ clone, data = bayesdata,
+          family = "gaussian", prior = prior1)
+summary(m1L)
+posterior_summary(m1L)
+
+rr3 <- rope_range(m1L)
+result1L <- describe_posterior(m1L, centrality = c("median", "mean"),
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                    test = c("equivalence_test", "p_direction", "p_significance"),
+                          rope_range = rr3, 
+                          diagnostic = "Rhat")
+result2L <- equivalence_test(m1L, 
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                          rope_range = rr3)
+plot(result2L)
+
+
+#Mutatios as fixed, clones as random factors
+
+get_prior(umax ~ 0 + mutation + (1|clone), data = bayesdata, family = gaussian())
+
+prior2 <- c(prior(student_t(3, 0, 2.5), class = sigma), 
+            prior(student_t(3, 0, 2.5), class = sd))
+
+m2K <- brm(A ~ mutation + (1|clone), data = bayesdata,
+          family = "gaussian", prior = prior2)
+summary(m2K)
+posterior_summary(m2K)
+
+rrR <- rope_range(m2K)
+#-0.1 * sd(y), 0.1 * sd(y)
+result2KR <- describe_posterior(m2K, centrality = c("median", "mean"),
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+            test = c("equivalence_test", "p_direction", "p_significance"),
+                          rope_range = rrR, 
+                          diagnostic = "Rhat")
+result2KR <- equivalence_test(m2K, 
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                          rope_range = rrR, 
+                          effects = "all")
+plot(result2KR)
+
+# umax
+m2umax <- brm(umax ~ mutation + (1|clone), data = bayesdata,
+          family = "gaussian", prior = prior2)
+summary(m2umax)
+posterior_summary(m2umax)
+
+rr3 <- rope_range(m2umax)
+result1umaxR <- describe_posterior(m2umax, centrality = c("median", "mean"),
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                test = c("equivalence_test", "p_direction", "p_significance"),
+                          rope_range = rr3, 
+                          diagnostic = "Rhat")
+result2umaxR <- equivalence_test(m2umax, 
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                          rope_range = rr3,
+                          effects = "all")
+plot(result2umaxR)
+
+# L
+m2L <- brm(L ~ mutation + (1|clone), data = bayesdata,
+          family = "gaussian", prior = prior2)
+summary(m2L)
+posterior_summary(m2L)
+
+rr4 <- rope_range(m2L)
+result1LR <- describe_posterior(m2L, centrality = c("median", "mean"),
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                    test = c("equivalence_test", "p_direction", "p_significance"),
+                          rope_range = rr4, 
+                          diagnostic = "Rhat")
+result2LR <- equivalence_test(m2L, 
+                          rope_ci = 0.95, 
+                          ci = 0.95,
+                          ci_method = "HDI", 
+                          rope_range = rr4, 
+                          effects = "all")
+plot(result2LR)
+```
+
+## Stats - Custom plots BAYESIAN - Canan
+```{r}
+theme <-  theme_bw()+
+  theme(legend.position = 'none')+
+  theme(axis.ticks.length = unit(.25, "cm"))+
+  theme(legend.text = element_text(size=12))+
+  theme(axis.text = element_text(size = 14), axis.title.y = element_text(size = 14), axis.title.x = element_text(size = 14))+
+  #theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(strip.text.x = element_text(size = 14))
+
+color_scheme_set("blue")
+
+pars <- c("b_clonem26", "b_clonem23", "b_clonem54", "b_clonem41", "b_clonem21",
+  "b_clonem19",  "b_clonem17", "b_clonem79", "b_clonem13",  "b_clonem4")
+
+labels <- c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26")
+
+posteriorK1 <- as.array(m1K)
+posteriorumax1 <- as.array(m1umax)
+posteriorL1 <- as.array(m1L)
+
+#K
+K1 <- mcmc_areas(posteriorK1, pars = pars,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m1K), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m1K)[1], xmax = rope_range(m1K)[2], ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  scale_y_discrete(labels = labels)+
+  scale_x_continuous(breaks = c(-0.1, 0, 0.1), labels = c(-1.1, 1, 1.1))+
+  xlab("Relative change")+
+ ggtitle("K - posterior distributions",
+"medians and 95% credible intervals(CI)")+
+  theme
+ggsave("K-clones.pdf", K1, height = 5, width = 5)
+
+#mumax
+umax1 <- mcmc_areas(posteriorumax1, pars = pars,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m1umax), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m1umax)[1], xmax = rope_range(m1umax)[2], ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  scale_y_discrete(labels = labels)+
+  scale_x_continuous(breaks = c(-0.05, 0.1, 0, 0.05, 0.1), labels = c(-1.05, 1.1, 1, 1.05, 1.1))+
+  xlab("Relative fitness")+
+  ggtitle("µmax-posterior distributions",
+"medians and 95% credible intervals (CI)")+
+theme
+ggsave("umax-clones.pdf", umax1, height = 5, width = 5)
+
+#L
+lag1 <- mcmc_areas(posteriorL1, pars = pars,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m1L), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m1L)[1], xmax = rope_range(m1L)[2], ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  scale_y_discrete(labels = labels)+
+  scale_x_continuous(breaks = c(-3, -2, -1, 0, 1), labels = c(-4, -3, -2, 1, 2))+
+  xlab("Relative change")+
+  ggtitle("lag - posterior distributions",
+"medians and 95% credible intervals (CI)")+theme
+ggsave("lag-clones.pdf", lag1, height = 5, width = 5)
+```
+## Bayesian Random effect plots - Canan
+```{r}
+posteriorK2 <- as.array(m2K)
+posteriorumax2 <- as.array(m2umax)
+posteriorL2 <- as.array(m2L)
+
+pars_random <- c("r_clone[m26,Intercept]", "r_clone[m23,Intercept]", "r_clone[m54,Intercept]", "r_clone[m41,Intercept]", "r_clone[m21,Intercept]", 
+                "r_clone[m19,Intercept]",  "r_clone[m17,Intercept]",  "r_clone[m79,Intercept]",  "r_clone[m13,Intercept]", "r_clone[m4,Intercept]")
+pars_fixed  <- c("b_mutation2","b_mutation3","b_mutation4" )
+
+fixed_labels <- rev(c("spore", "sinR", "ywcC/slrR"))
+random_labels <- rev(c('m26','m23','m54','m41','m21','m19','m17','m79','m13','m4'))
+
+#K - random
+
+K2_random <- mcmc_areas(posteriorK2, pars = pars_random,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m2K), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m2K)[1], xmax = rope_range(m2K)[2], ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  scale_y_discrete(labels = labels)+
+  xlab("Estimate")+
+  ggtitle("K - random effects")+theme
+ggsave("K-mutation-random.pdf", K2_random , height = 5, width = 5)
+
+# K - fixed
+K2_fixed <- mcmc_areas(posteriorK2, pars = pars_fixed,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m2K), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m2K)[1], xmax = rope_range(m2K)[2], ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  scale_y_discrete(labels = fixed_labels)+
+  scale_x_continuous(breaks = c(-0.2, 0, 0.2), labels = c(-1.2, 2, 1.2))+
+  xlab("Relative change")+
+  ggtitle("K - fixed effects")+theme
+ggsave("K-mutation-fixed.pdf", K2_fixed , height = 5, width = 5)
+
+# umax - random
+umax2_random <- mcmc_areas(posteriorumax2, pars = pars_random,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m2umax), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m2umax)[1] , xmax = rope_range(m2umax)[2] , ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  scale_y_discrete(labels = labels)+
+  xlab("Relative fitness")+
+  ggtitle("µmax - random effects")+theme
+ggsave("umax-mutation-random.pdf", umax2_random , height = 5, width = 5)
+
+# mumax - fixed
+umax2_fixed <- mcmc_areas(posteriorumax2, pars = pars_fixed,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m2umax), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m2umax)[1], xmax = rope_range(m2umax)[2], ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  scale_y_discrete(labels = labels)+
+  scale_x_continuous(breaks = c(-0.05, 0.1, 0, 0.05, 0.1), labels = c(-1.05, 1.1, 1, 1.05, 1.1))+
+  xlab("Relative fitness")+
+  ggtitle("µmax - fixed effects")+theme
+ggsave("umax-mutation-fixed.pdf", umax2_fixed , height = 5, width = 5)
+
+# L - random
+lag2_random <- mcmc_areas(posteriorL2, pars = pars_random,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m2L), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m2L)[1] , xmax = rope_range(m2L)[2], ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  scale_y_discrete(labels = labels)+
+  xlab("Relative change")+
+  ggtitle("lag - random effects")+theme
+ggsave("lag-mutation-random.pdf", lag2_random , height = 5, width = 5)
+
+# L - fixed
+lag2_fixed <- mcmc_areas(posteriorL2, pars = pars_fixed,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m2L), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m2L)[1], xmax = rope_range(m2L)[2], ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  scale_y_discrete(labels = labels)+
+  scale_x_continuous(breaks = c(-3, -2, -1, 0, 1), labels = c(-4, -3, -2, 1, 2))+
+  xlab("Relative change")+
+  ggtitle("lag - fixed effects")+theme
+ggsave("lag-mutation-fixed.pdf", lag2_fixed , height = 5, width = 5)
+
+```
+
+#  OLDER
 ## Wrangle into treatments - Jay's 
 ```{r}
 # Ancestor
