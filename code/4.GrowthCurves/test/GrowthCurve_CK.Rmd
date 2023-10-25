@@ -413,9 +413,117 @@ ggplot(sum_treats_param, aes(x = weave_factors(clone, mutation, evo.type, cell.t
       guides(y.sec = guide_axis_manual(
     breaks = c(0.15, 0.13, 0.11, 0.09, 0.07), labels = NULL))
 ```
+## Relative fitness - Canan -after Don
+```{r}
+treats_param$clone <- factor(treats_param$clone, levels = c("ancestor", "m4", "m13", "m79", "m17", "m19", "m21",  "m41", "m54", "m23","m26"))  
+sum_treats_param$clone <- factor(sum_treats_param$clone, levels = c("ancestor", "m4", "m13", "m79", "m17", "m19", "m21",  "m41", "m54", "m23","m26")) 
+
+# Plot to compare with other analysis
+ggplot(sum_treats_param, aes(y = clone, x = mean_umax))+
+  geom_point(shape = 1, size = 4, color = "black")+
+  geom_point(data = treats_param, aes(x = umax, y = clone), alpha = .3, size = 4, color = "grey")+
+  geom_errorbar(data = sum_treats_param, aes (y = clone, xmin = (mean_umax - sem_umax), xmax = (mean_umax + sem_umax)), width = .2, color = "black")+
+  ggtitle("Maximum growth rate - mean/se")+
+  theme_bw()+
+  theme(axis.ticks.length=unit(.25, "cm"))+
+  theme(legend.title = element_blank(), legend.text = element_text(size=12))+
+  theme(axis.text = element_text(size = 14), 
+  axis.title.x = element_blank(), axis.title.y = element_text(size =14))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+# relative growth rate - from Don 
+
+w_anc <- (1/treats_param$clones[['ancestor']]$umax.se^2)/sum((1/treats_param[['ancestor']]$umax.se^2))
+anc_mean <- sum(w_anc*treats_param[['anc']]$umax)
+anc_var  <- sum(w_anc*(treats_param[['anc']]$umax-anc_mean)^2)/(1-sum(w_anc^2))
+
+treats_param_anc <- treats_param %>%
+  filter(clone == "ancestor") %>% 
+reframe(w_anc = (1/umax.se^2)/sum((1/umax.se^2)), 
+         mean_anc = sum(w_anc*umax), 
+         var_anc = sum(w_anc*(umax-mean_anc)^2)/(1-sum(w_anc^2)))
+
+w_anc    <- treats_param_anc$w_anc
+mean_anc <- treats_param_anc$mean_anc
+var_anc  <- treats_param_anc$var_anc
+
+treats_param_rel <- treats_param %>% 
+  group_by(clone) %>% 
+    filter(!clone == "ancestor") %>% 
+  reframe(w_clones = (1/umax.se^2)/sum((1/umax.se^2)), 
+         mean_clones = sum(w_clones*umax), 
+         var_clones = sum(w_clones*(umax-mean_anc)^2)/(1-sum(w_anc^2))) %>%
+  mutate(rf = mean_clones/mean_anc) %>%
+mutate(rf_se = mean_clones/mean_anc*sqrt((sqrt(var_clones)/mean_clones)^2+(sqrt(var_anc)/mean_anc)^2), 
+       lower = rf-1.96*rf_se, upper = rf+1.96*rf_se) %>%
+dplyr::select(c('clone', 'rf', 'rf_se', 'lower', 'upper'))%>%
+group_by(clone) %>%
+  summarise(rf = mean(rf), rf_se = mean(rf_se), lower = mean(lower), upper = mean(upper))
+
+
+ggplot(treats_param_rel, aes(y = clone, x = rf))+
+  geom_vline(xintercept = 1, linetype = "dashed")+
+  geom_point(shape = 1, size = 4, color = "black")+
+  #geom_errorbar(aes (y = clone, xmin = (rf - rf_se), xmax = (rf + rf_se)), width = .2, color = "red")+
+  geom_errorbar(aes (y = clone, xmin = lower, xmax = upper), width = .2, color = "black")+
+  ggtitle("Relative fitness - mean/se")+
+  theme_bw()+
+  theme(axis.ticks.length=unit(.25, "cm"))+
+  theme(legend.title = element_blank(), legend.text = element_text(size=12))+
+  theme(axis.text = element_text(size = 14), 
+  axis.title.x = element_blank(), axis.title.y = element_text(size =14))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+
+treats_param_rel <- treats_param %>% 
+  group_by(clone) %>% 
+    filter(!clone == "ancestor")  %>% 
+  dplyr::select(clone, umax) %>% 
+  mutate(rel = umax/anc_mean) %>% 
+  group_by(clone) %>% 
+  summarise(mean = mean(rel), se = sem(rel))
+
+
+ggplot(treats_param_rel, aes(y = clone, x = mean))+
+  geom_vline(xintercept = 1, linetype = "dashed")+
+  geom_point(shape = 1, size = 4, color = "black")+
+  geom_errorbar(aes (y = clone, xmin = mean - se, xmax = mean + se) , width = .2, color = "black")+
+  ggtitle("Relative fitness - mean/se")+
+  theme_bw()+
+  theme(axis.ticks.length=unit(.25, "cm"))+
+  theme(legend.title = element_blank(), legend.text = element_text(size=12))+
+  theme(axis.text = element_text(size = 14), 
+  axis.title.x = element_blank(), axis.title.y = element_text(size =14))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+treats_param_rel_m <- treats_param %>% 
+  group_by(clone) %>% 
+    filter(!clone == "ancestor")  %>% 
+  dplyr::select(clone, umax) %>% 
+  mutate(rel = umax/anc_mean)
+
+
+mumax <- brm(rel ~ 0 + clone, data = treats_param_rel_m,
+          family = "gaussian")
+posterior_summary(mumax)
+posteriorumax <- as.array(mumax)
+
+mcmc_intervals(posteriorumax, pars = pars,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = 1)
+  #scale_y_discrete(labels = labels)+
+  #scale_x_continuous(breaks = c(-0.05, 0.1, 0, 0.05, 0.1), labels = c(-1.05, 1.1, 1, 1.05, 1.1))+
+  xlab("Relative fitness")+
+  ggtitle("µmax-posterior distributions",
+"medians and 95% credible intervals (CI)")+
+theme
+ggsave("umax-clones.pdf", umax1, height = 5, width = 5)
+
+```
+
 ## Remake Megan's figure for the manuscript - Canan
 ```{r}
-
 treats_param_long <- treats_param %>%
   dplyr::select(b0, A, umax, L, evo.type, cell.type, mutation, clone) %>%
   pivot_longer(cols = c(b0, A, umax, L), names_to = "parameter", values_to = "value") %>%
@@ -454,8 +562,6 @@ ggplot(treats_param_sum, aes(x = mutation, y = meanvalue, color = mutation))+
   scale_color_manual(values = c("#E64B35","#4DBBD5","#3C5488","#F39B7F"))
   
 ``` 
-
-
 
 ## Stats - Canan - Mutation comparisons
 ```{r}
@@ -746,7 +852,7 @@ summary(m2L)
 posterior_summary(m2L)
 
 rr4 <- rope_range(m2L)
-result1LR <- describe_posterior(m2L, centrality = c("median", "mean"),
+result2LR <- describe_posterior(m2L, centrality = c("median", "mean"),
                           rope_ci = 0.95, 
                           ci = 0.95,
                           ci_method = "HDI", 
@@ -774,10 +880,10 @@ theme <-  theme_bw()+
 
 color_scheme_set("blue")
 
-pars <- c("b_clonem26", "b_clonem23", "b_clonem54", "b_clonem41", "b_clonem21",
-  "b_clonem19",  "b_clonem17", "b_clonem79", "b_clonem13",  "b_clonem4")
+pars <- c("b_clonem26", "b_clonem23", "b_clonem54", "b_clonem41", "b_clonem21", "b_clonem19", "b_clonem17", "b_clonem79", "b_clonem13", "b_clonem4")
 
-labels <- c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26")
+#labels are messed up
+#labels <- c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26")
 
 posteriorK1 <- as.array(m1K)
 posteriorumax1 <- as.array(m1umax)
@@ -790,7 +896,7 @@ K1 <- mcmc_areas(posteriorK1, pars = pars,
   geom_vline(xintercept = rope_range(m1K), linetype = "dashed", color = "grey25")+
   annotate("rect", xmin = rope_range(m1K)[1], xmax = rope_range(m1K)[2], ymin = -Inf, ymax = Inf,
            alpha = .2,fill = "grey")+
-  scale_y_discrete(labels = labels)+
+  #scale_y_discrete(labels = labels)+
   scale_x_continuous(breaks = c(-0.1, 0, 0.1), labels = c(-1.1, 1, 1.1))+
   xlab("Relative change")+
  ggtitle("K - posterior distributions",
@@ -798,15 +904,30 @@ K1 <- mcmc_areas(posteriorK1, pars = pars,
   theme
 ggsave("K-clones.pdf", K1, height = 5, width = 5)
 
-#mumax
+#umax
 umax1 <- mcmc_areas(posteriorumax1, pars = pars,
   prob = 0.95, # 95% intervals
   prob_outer = 1)+
   geom_vline(xintercept = rope_range(m1umax), linetype = "dashed", color = "grey25")+
   annotate("rect", xmin = rope_range(m1umax)[1], xmax = rope_range(m1umax)[2], ymin = -Inf, ymax = Inf,
            alpha = .2,fill = "grey")+
-  scale_y_discrete(labels = labels)+
-  scale_x_continuous(breaks = c(-0.05, 0.1, 0, 0.05, 0.1), labels = c(-1.05, 1.1, 1, 1.05, 1.1))+
+  #scale_y_discrete(labels = labels)+
+  #scale_x_continuous(breaks = c(-0.05, 0.1, 0, 0.05, 0.1), labels = c(-1.05, 1.1, 1, 1.05, 1.1))+
+  xlab("Relative fitness")+
+  ggtitle("µmax-posterior distributions",
+"medians and 95% credible intervals (CI)")+
+theme
+ggsave("umax-clones.pdf", umax1, height = 5, width = 5)
+
+#umax intervals
+umax1 <- mcmc_intervals(posteriorumax1, pars = pars,
+  prob = 0.95, # 95% intervals
+  prob_outer = 1)+
+  geom_vline(xintercept = rope_range(m1umax), linetype = "dashed", color = "grey25")+
+  annotate("rect", xmin = rope_range(m1umax)[1], xmax = rope_range(m1umax)[2], ymin = -Inf, ymax = Inf,
+           alpha = .2,fill = "grey")+
+  #scale_y_discrete(labels = labels)+
+  #scale_x_continuous(breaks = c(-0.05, 0.1, 0, 0.05, 0.1), labels = c(-1.05, 1.1, 1, 1.05, 1.1))+
   xlab("Relative fitness")+
   ggtitle("µmax-posterior distributions",
 "medians and 95% credible intervals (CI)")+
@@ -820,7 +941,7 @@ lag1 <- mcmc_areas(posteriorL1, pars = pars,
   geom_vline(xintercept = rope_range(m1L), linetype = "dashed", color = "grey25")+
   annotate("rect", xmin = rope_range(m1L)[1], xmax = rope_range(m1L)[2], ymin = -Inf, ymax = Inf,
            alpha = .2,fill = "grey")+
-  scale_y_discrete(labels = labels)+
+  #scale_y_discrete(labels = labels)+
   scale_x_continuous(breaks = c(-3, -2, -1, 0, 1), labels = c(-4, -3, -2, 1, 2))+
   xlab("Relative change")+
   ggtitle("lag - posterior distributions",
@@ -833,11 +954,14 @@ posteriorK2 <- as.array(m2K)
 posteriorumax2 <- as.array(m2umax)
 posteriorL2 <- as.array(m2L)
 
-pars_random <- c("r_clone[m26,Intercept]", "r_clone[m23,Intercept]", "r_clone[m54,Intercept]", "r_clone[m41,Intercept]", "r_clone[m21,Intercept]", 
-                "r_clone[m19,Intercept]",  "r_clone[m17,Intercept]",  "r_clone[m79,Intercept]",  "r_clone[m13,Intercept]", "r_clone[m4,Intercept]")
-pars_fixed  <- c("b_mutation2","b_mutation3","b_mutation4" )
+pars_random <- c("r_clone[m4,Intercept]", "r_clone[m13,Intercept]", "r_clone[m79,Intercept]", 
+                 "r_clone[m17,Intercept]", "r_clone[m19,Intercept]", "r_clone[m21,Intercept]", 
+                 "r_clone[m41,Intercept]", "r_clone[m54,Intercept]", "r_clone[m23,Intercept]",
+                 "r_clone[m26,Intercept]")
 
-fixed_labels <- rev(c("spore", "sinR", "ywcC/slrR"))
+pars_fixed  <- rev(c("b_mutation3","b_mutation2","b_mutation4"))
+
+fixed_labels <- rev(c("spore", "sinR","ywcC/slrR"))
 random_labels <- rev(c('m26','m23','m54','m41','m21','m19','m17','m79','m13','m4'))
 
 #K - random
@@ -848,7 +972,7 @@ K2_random <- mcmc_areas(posteriorK2, pars = pars_random,
   geom_vline(xintercept = rope_range(m2K), linetype = "dashed", color = "grey25")+
   annotate("rect", xmin = rope_range(m2K)[1], xmax = rope_range(m2K)[2], ymin = -Inf, ymax = Inf,
            alpha = .2,fill = "grey")+
-  scale_y_discrete(labels = labels)+
+  scale_y_discrete(labels = random_labels)+
   xlab("Estimate")+
   ggtitle("K - random effects")+theme
 ggsave("K-mutation-random.pdf", K2_random , height = 5, width = 5)
@@ -873,7 +997,7 @@ umax2_random <- mcmc_areas(posteriorumax2, pars = pars_random,
   geom_vline(xintercept = rope_range(m2umax), linetype = "dashed", color = "grey25")+
   annotate("rect", xmin = rope_range(m2umax)[1] , xmax = rope_range(m2umax)[2] , ymin = -Inf, ymax = Inf,
            alpha = .2,fill = "grey")+
-  scale_y_discrete(labels = labels)+
+  scale_y_discrete(labels = random_labels)+
   xlab("Relative fitness")+
   ggtitle("µmax - random effects")+theme
 ggsave("umax-mutation-random.pdf", umax2_random , height = 5, width = 5)
@@ -885,8 +1009,8 @@ umax2_fixed <- mcmc_areas(posteriorumax2, pars = pars_fixed,
   geom_vline(xintercept = rope_range(m2umax), linetype = "dashed", color = "grey25")+
   annotate("rect", xmin = rope_range(m2umax)[1], xmax = rope_range(m2umax)[2], ymin = -Inf, ymax = Inf,
            alpha = .2,fill = "grey")+
-  scale_y_discrete(labels = labels)+
-  scale_x_continuous(breaks = c(-0.05, 0.1, 0, 0.05, 0.1), labels = c(-1.05, 1.1, 1, 1.05, 1.1))+
+  scale_y_discrete(labels = fixed_labels)+
+  scale_x_continuous(breaks = c(-0.2, -0.1, 0, 0.1, 0.2), labels = c(-1.2, -1.1, 1, 1.1, 1.2))+
   xlab("Relative fitness")+
   ggtitle("µmax - fixed effects")+theme
 ggsave("umax-mutation-fixed.pdf", umax2_fixed , height = 5, width = 5)
@@ -898,7 +1022,7 @@ lag2_random <- mcmc_areas(posteriorL2, pars = pars_random,
   geom_vline(xintercept = rope_range(m2L), linetype = "dashed", color = "grey25")+
   annotate("rect", xmin = rope_range(m2L)[1] , xmax = rope_range(m2L)[2], ymin = -Inf, ymax = Inf,
            alpha = .2,fill = "grey")+
-  scale_y_discrete(labels = labels)+
+  scale_y_discrete(labels = random_labels)+
   xlab("Relative change")+
   ggtitle("lag - random effects")+theme
 ggsave("lag-mutation-random.pdf", lag2_random , height = 5, width = 5)
@@ -910,13 +1034,16 @@ lag2_fixed <- mcmc_areas(posteriorL2, pars = pars_fixed,
   geom_vline(xintercept = rope_range(m2L), linetype = "dashed", color = "grey25")+
   annotate("rect", xmin = rope_range(m2L)[1], xmax = rope_range(m2L)[2], ymin = -Inf, ymax = Inf,
            alpha = .2,fill = "grey")+
-  scale_y_discrete(labels = labels)+
+  
+  scale_y_discrete(labels = fixed_labels)+
   scale_x_continuous(breaks = c(-3, -2, -1, 0, 1), labels = c(-4, -3, -2, 1, 2))+
   xlab("Relative change")+
   ggtitle("lag - fixed effects")+theme
 ggsave("lag-mutation-fixed.pdf", lag2_fixed , height = 5, width = 5)
 
 ```
+
+
 
 #  OLDER
 ## Wrangle into treatments - Jay's 
