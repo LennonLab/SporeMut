@@ -35,6 +35,9 @@ library(bayestestR)
 library(bayesplot)
 
 sem <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
+
+#For jags bayesian - Don 
+library(rjags)
 ```
 
 # Load data
@@ -191,7 +194,7 @@ result2.3 <- equivalence_test(m2,
 ```
 ## Plots - Canan
 ```{r}
-theme <- theme_bw()+
+mytheme <- theme_bw()+
   theme(legend.position = 'none')+
   theme(axis.ticks.length = unit(.25, "cm"))+
   theme(legend.text = element_text(size=12))+
@@ -219,7 +222,7 @@ B1 <- mcmc_areas(posteriorB1, pars = pars,
   scale_x_continuous(breaks = c(-0.5, 0, 0.5, 1, 1.5), labels = c(-1.5, 1, 1.5, 2, 2.5))+
   xlab("Relative change")+
  ggtitle("Biofilm - posterior distributions",
-"medians and 95% credible intervals")+theme
+"medians and 95% credible intervals")+mytheme
 ggsave("Biofilm-clones.pdf", B1, height = 5, width = 5)
 
 posteriorB2 <- as.array(m2)
@@ -241,7 +244,7 @@ B2_random <- mcmc_areas(posteriorB2, pars = pars_random,
   #scale_x_continuous(breaks = c(-0.1, 0, 0.1), labels = c(-1.1, 1, 1.1))+
   xlab("Relative change")+
  ggtitle("Biofilm - random")+
-  theme
+  mytheme
 ggsave("biofilm-random.pdf", B2_random, height = 5, width = 5)
 
 equivalence_test(m2, effects = "fixed")
@@ -259,11 +262,133 @@ B2_fixed <- mcmc_areas(posteriorB2, pars = pars_fixed,
   scale_x_continuous(breaks = c(-2, 0, 2), labels = c(-3, 1, 3))+
   xlab("Relative change")+
  ggtitle("Biofilm - fixed")+
-  theme
+  mytheme
 ggsave("biofilm-fixed.pdf", B2_fixed, height = 5, width = 5)
 
 ```
 
+##Jags model - Don
+```{r}
+input_dat <- read.table("~/GitHub/SporMut/code/3.Biofilm/biofil.csv", sep= ",", header = T)
+
+clns<-c("m4","m13","m17","m19","m21","m23","m26","m41","m54","m79","ancestor")
+ord_list<-rep(clns,each=8)
+dat<-split(input_dat,f=factor(ord_list,levels = clns))
+var.mat<-data.frame(sapply(dat,"[",8))^2
+wts_mat<-sweep(1/var.mat,MARGIN = 2,STATS =colSums(1/var.mat) ,FUN = "/")
+apply(as.data.frame(sapply(dat,"[",8))*as.matrix(wts_mat),2,sum)
+####
+
+biofilm_df<-data.frame(biofilm=stack(as.data.frame(sapply(dat,"[",8)))$values,                           lvl=as.factor(sapply(strsplit(as.character(stack(as.data.frame(sapply(dat,"[",8)))$ind),"\\."),"[",1)))
+                    
+
+mod<-"model{
+     for(i in 1:8){
+       for(j in 1:10){
+       #here is the model for each clone
+       M_mu[i,j]~dlnorm(mu_m[j],tau_m[j]*wts_m[i,j])
+       #M_mu[i,j]~dlnorm(mu_m[j],tau_m[j])
+       }
+       #here is the model of the ancestor
+      An_mu[i]~dlnorm(mu_a,tau_a*wts_a[i])
+      #An_mu[i]~dlnorm(mu_a,tau_a)
+     }
+     #priors
+     for(i in 1:10){
+      mu_m[i]~dnorm(0,.001)
+      tau_m[i]~dgamma(.01,.01)
+     }
+     mu_a~dnorm(0,.001)
+     tau_a~dgamma(.01,.01)
+}"     
+
+jdat<-list("M_mu"=as.data.frame(sapply(dat,"[",8))[,-11],"An_mu"=dat[['ancestor']]$OD550_Corrected,"wts_m"=wts_mat[,1:10],"wts_a"=wts_mat[,11])
+jmod<-jags.model(textConnection(mod),n.chains = 4,data = jdat,n.adapt = 1000)
+update(jmod,1000)
+ans<-coda.samples(jmod,c("mu_m","mu_a"),10000)
+
+summ<-summary(ans)
+exp(summ$quantiles)
+
+exp(summ$quantiles[,"50%"])
+apply(as.data.frame(sapply(dat,"[",8))*as.matrix(wts_mat),2,sum)
+vals<-rbind(as.matrix(ans[[1]]),as.matrix(ans[[2]]),as.matrix(ans[[3]]),as.matrix(ans[[4]]))
+apply(vals,2,function(x)median(exp(x)))
+exp(summ$quantiles[,"50%"])
+plt_qnts<-matrix(0,11,3)
+rownames(plt_qnts)<-c("ancestor", clns[-11])
+colnames(plt_qnts)<-c("2.5%","50%","97.5%")
+for(i in 1:11)plt_qnts[i,]<-quantile(exp(vals[,i]),c(.025,.5,.975))
+plt_qnts_dat <- as.data.frame(plt_qnts)
+plt_qnts_dat$clones <- rownames(plt_qnts_dat)
+
+plt_qnts_dat$clones <- factor(plt_qnts_dat$clones, c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26", "ancestor"))
+
+biofilmplot <- ggplot(plt_qnts_dat, aes(y = clones, x = plt_qnts_dat[,2], group = clones))+
+  geom_vline(xintercept = 0, linetype = "dashed")+
+  geom_errorbar(aes(xmin =plt_qnts_dat[,1], xmax =plt_qnts_dat[,3]), width = 0, size =1, color = "darkblue")+
+   geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
+  theme+
+  xlab("Biofilm (OD550)")+
+  mytheme(axis.title.y = element_blank())
+ggsave("biofilmJags.pdf", biofilmplot, width = 5, height = 6)
+
+# With no weights - OVERWRITES!
+
+mod2<-"model{
+     for(i in 1:8){
+       for(j in 1:10){
+       #here is the model for each clone
+       M_mu[i,j]~dlnorm(mu_m[j],tau_m[j])
+       #M_mu[i,j]~dlnorm(mu_m[j],tau_m[j])
+       }
+       #here is the model of the ancestor
+      An_mu[i]~dlnorm(mu_a,tau_a)
+      #An_mu[i]~dlnorm(mu_a,tau_a)
+     }
+     #priors
+     for(i in 1:10){
+      mu_m[i]~dnorm(0,.001)
+      tau_m[i]~dgamma(.01,.01)
+     }
+     mu_a~dnorm(0,.001)
+     tau_a~dgamma(.01,.01)
+}"     
+
+jdat<-list("M_mu"=as.data.frame(sapply(dat,"[",8))[,-11],"An_mu"=dat[['ancestor']]$OD550_Corrected)
+jmod<-jags.model(textConnection(mod2),n.chains = 4,data = jdat,n.adapt = 1000)
+update(jmod,1000)
+ans<-coda.samples(jmod,c("mu_m","mu_a"),10000)
+
+summ<-summary(ans)
+exp(summ$quantiles)
+
+exp(summ$quantiles[,"50%"])
+apply(as.data.frame(sapply(dat,"[",8)),2,sum)
+vals<-rbind(as.matrix(ans[[1]]),as.matrix(ans[[2]]),as.matrix(ans[[3]]),as.matrix(ans[[4]]))
+apply(vals,2,function(x)median(exp(x)))
+exp(summ$quantiles[,"50%"])
+plt_qnts<-matrix(0,11,3)
+rownames(plt_qnts)<-c("ancestor", clns[-11])
+colnames(plt_qnts)<-c("2.5%","50%","97.5%")
+for(i in 1:11)plt_qnts[i,]<-quantile(exp(vals[,i]),c(.025,.5,.975))
+plt_qnts_dat <- as.data.frame(plt_qnts)
+plt_qnts_dat$clones <- rownames(plt_qnts_dat)
+
+plt_qnts_dat$clones <- factor(plt_qnts_dat$clones, c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26", "ancestor"))
+
+biofilmplot <- ggplot(plt_qnts_dat, aes(y = clones, x = plt_qnts_dat[,2], group = clones))+
+  geom_vline(xintercept = 0, linetype = "dashed")+
+  geom_errorbar(aes(xmin =plt_qnts_dat[,1], xmax =plt_qnts_dat[,3]), width = 0, size =1, color = "darkblue")+
+   geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
+  mytheme+
+  xlab("Biofilm (OD550)")+
+  theme(axis.title.y = element_blank())
+ggsave("biofilmJags_noweights.pdf", biofilmplot, width = 5, height = 6)
+
+
+
+```
 ## Trade-off exploration 
 ```{r}
 GrowthData <- read.table("~/Github/SporMut/code/4.GrowthCurves/test/growthData", sep= ",", header = TRUE)
