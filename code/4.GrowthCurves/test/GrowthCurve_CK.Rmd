@@ -49,11 +49,17 @@ require(patchwork) #to combine plots
 # For Bayesian stats 
 require("rstan")
 require("devtools")
-install_github("paul-buerkner/brms")
+#install_github("paul-buerkner/brms")
 library(brms)
 devtools::install_github("strengejacke/sjstats")
 library(bayestestR)
 library(bayesplot) #plotting posteriors
+
+
+# After Don 
+# Jags version 
+
+#library(rjags)
 ```
 
 ## Load data
@@ -82,6 +88,12 @@ dat3$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat3$Time))
 dat4$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat4$Time))
 dat5$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat5$Time))
 ```
+
+## To skip followint chunks, read this data 
+```{r}
+input_dat <- read.csv("~/Github/SporMut/code/4.GrowthCurves/data/comp_data.csv")
+```
+
 ## Run Gompertz model - Do not run if you already have the outputs - Read outputs
 ```{r}
 # Slow process: comment out line below after running
@@ -363,6 +375,8 @@ treats <- read.csv("~/Github/SporMut/code/4.GrowthCurves/data/treatments_origina
 
 all.fits.treats <- all.fits %>%
   left_join(treats, by = "clones")
+
+write.csv(all.fits.treats, "comp_data.csv", row.names=FALSE)
 ```
 
 ## Wrangle dplyr/ggplot version - Canan
@@ -1042,8 +1056,206 @@ lag2_fixed <- mcmc_areas(posteriorL2, pars = pars_fixed,
 ggsave("lag-mutation-fixed.pdf", lag2_fixed , height = 5, width = 5)
 
 ```
+## Models with rjags - Don 
+```{r}
+####load the data####
+#grab the clone names
+clns<-c("anc","M26","M23","M54","M41","M21","M19","M17","M79","M13","M4")
 
+head(input_dat)
+dat_order<-c(1:6,unlist(lapply(paste0("^",clns[-1],"_"),function(x)grep(x,input_dat$Curve))))
+ord_list<-rep(clns,each=6)
 
+#put this is form this code used previously
+dat<-split(input_dat[dat_order,-1],f=factor(ord_list,levels = clns))
+
+#set up data for analyses
+var.mat<-data.frame(sapply(dat,"[",7))^2
+#make weights based on inverse variance within clones
+wts_mat<-sweep(1/var.mat,MARGIN = 2,STATS =colSums(1/var.mat) ,FUN = "/")
+
+#find weighted means
+apply(as.data.frame(sapply(dat,"[",6))*as.matrix(wts_mat),2,sum)
+
+#create a long-form data.frame for later use
+umax_df<-data.frame(umax=stack(as.data.frame(sapply(dat,"[",6)))$values,
+                            lvl=as.factor(sapply(strsplit(as.character(stack(as.data.frame(sapply(dat,"[",6)))$ind),"\\."),"[",1)))
+                    
+# now let's do it bayes-style. from what I gather from the code, the sampling is simply done using the 6
+# replicates for each clone and the ancestor. So, I will do that I will assume that the umax for each rep (for each clone)
+# is sampling a population mean. in addition, will use the umax_se to define weights
+
+#make a jags model that estimates a umax for the replicates of clones and the ancestor,
+# using the weights the estimates. we will sample a log-normal dist for umax to make
+# sure the estimates are all positive during sampling and assume each clone is sampling a dist
+# with unique variance
+mod<-"model{
+     for(i in 1:6){
+       for(j in 1:10){
+       #here is the model for each clone
+       M_mu[i,j]~dlnorm(mu_m[j],tau_m[j]*wts_m[i,j])
+       #M_mu[i,j]~dlnorm(mu_m[j],tau_m[j])
+       }
+       #here is the model of the ancestor
+      An_mu[i]~dlnorm(mu_a,tau_a*wts_a[i])
+      #An_mu[i]~dlnorm(mu_a,tau_a)
+     }
+     #priors
+     for(i in 1:10){
+      mu_m[i]~dnorm(0,.001)
+      tau_m[i]~dgamma(.01,.01)
+     }
+     mu_a~dnorm(0,.001)
+     tau_a~dgamma(.01,.01)
+     
+}"     
+#Fit it
+#gather data to feed jags
+jdat<-list("M_mu"=as.data.frame(sapply(dat,"[",6))[,-1],"An_mu"=dat[['anc']]$umax,"wts_m"=wts_mat[,2:11],"wts_a"=wts_mat[,1])
+#build the model object
+jmod<-jags.model(textConnection(mod),n.chains = 4,data = jdat,n.adapt = 1000)
+#update it
+update(jmod,1000)
+#sample it
+ans<-coda.samples(jmod,c("mu_m","mu_a"),10000)
+#look at plot to make sure they converge
+
+plot(ans)
+#the samples look great so sets peek at the summaries of the posterior dists
+summ<-summary(ans)
+#check out the median of the posterior estimates
+# we exponentiate them because we used a log-normal
+exp(summ$quantiles)
+
+#lets compare these medians with the simple weighted means
+exp(summ$quantiles[,"50%"])
+apply(as.data.frame(sapply(dat,"[",6))*as.matrix(wts_mat),2,sum)
+#nice. all makes sense and is working
+
+##Let's calcuate the relative fitness across all chains
+
+#combine all of the chains 
+vals<-rbind(as.matrix(ans[[1]]),as.matrix(ans[[2]]),as.matrix(ans[[3]]),as.matrix(ans[[4]]))
+#find the quartiles of the relative fitness
+apply(vals,2,function(x)median(exp(x)))
+#as another check on our code, these should duplicate what we saw in the summary step above
+exp(summ$quantiles[,"50%"])
+#bingo!
+
+#calc relative fitness for rest of clones and plot them in a style
+#similar to umax-clones.pdf
+plt_qnts<-matrix(0,10,3)
+rownames(plt_qnts)<-clns[-1]
+colnames(plt_qnts)<-c("2.5%","50%","97.5%")
+for(i in 1:10)plt_qnts[i,]<-quantile(exp(vals[,i+1])/exp(vals[,1]),c(.025,.5,.975))
+
+#plot the results 
+plt_qnts_dat <- as.data.frame(plt_qnts)
+plt_qnts_dat$clones <- rownames(plt_qnts_dat)
+
+plt_qnts_dat$clones <- factor(plt_qnts_dat$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26"))
+
+umaxplot <- ggplot(plt_qnts_dat, aes(y = clones, x = plt_qnts_dat[,2], group = clones))+
+  geom_vline(xintercept = 1, linetype = "dashed")+
+  geom_errorbar(aes(xmin =plt_qnts_dat[,1], xmax =plt_qnts_dat[,3]), width = 0, size =1, color = "darkblue")+
+   geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
+  theme+
+  xlab("Relative fitness")+
+  ggtitle(expression( ~ mu * "max d"^-1))+
+   scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26"))+
+  theme(axis.title.y = element_blank())
+ggsave("umaxJags.pdf", umaxplot, width = 5, height = 6)
+
+# K
+var.matK<-data.frame(sapply(dat,"[",5))^2
+wts_matK<-sweep(1/var.matK,MARGIN = 2,STATS =colSums(1/var.matK) ,FUN = "/")
+apply(as.data.frame(sapply(dat,"[",4))*as.matrix(wts_matK),2,sum)
+K_df<-data.frame(K=stack(as.data.frame(sapply(dat,"[",4)))$values,                            lvl=as.factor(sapply(strsplit(as.character(stack(as.data.frame(sapply(dat,"[",4)))$ind),"\\."),"[",1)))
+
+jdatK<-list("M_mu"=as.data.frame(sapply(dat,"[",4))[,-1],"An_mu"=dat[['anc']]$A,"wts_m"=wts_matK[,2:11],"wts_a"=wts_matK[,1])
+jmodK<-jags.model(textConnection(mod),n.chains = 4,data = jdatK,n.adapt = 1000)
+update(jmodK,1000)
+ansK<-coda.samples(jmodK,c("mu_m","mu_a"),10000)
+
+plot(ansK)
+summK<-summary(ansK)
+exp(summK$quantiles)
+
+exp(summK$quantiles[,"50%"])
+apply(as.data.frame(sapply(dat,"[",4))*as.matrix(wts_matK),2,sum)
+
+valsK<-rbind(as.matrix(ansK[[1]]),as.matrix(ansK[[2]]),as.matrix(ansK[[3]]),as.matrix(ansK[[4]]))
+
+apply(valsK,2,function(x)median(exp(x)))
+exp(summK$quantiles[,"50%"])
+
+plt_qntsK<-matrix(0,10,3)
+rownames(plt_qntsK)<-clns[-1]
+colnames(plt_qntsK)<-c("2.5%","50%","97.5%")
+for(i in 1:10)plt_qntsK[i,]<-quantile(exp(valsK[,i+1])/exp(valsK[,1]),c(.025,.5,.975))
+
+#plot the results 
+plt_qnts_datK <- as.data.frame(plt_qntsK)
+plt_qnts_datK$clones <- rownames(plt_qnts_datK)
+
+plt_qnts_datK$clones <- factor(plt_qnts_datK$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26"))
+
+Kplot <- ggplot(plt_qnts_datK, aes(y = clones, x = plt_qnts_datK[,2], group = clones)) +
+  geom_vline(xintercept = 1, linetype = "dashed")+
+  geom_errorbar(aes(xmin =plt_qnts_datK[,1], xmax =plt_qnts_datK[,3]), width = 0, size =1, color = "darkblue")+
+   geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
+  theme+
+  xlab("Relative change")+
+  ggtitle("K")+
+   scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26")) +
+  theme(axis.title.y = element_blank())
+ggsave("KJags.pdf", Kplot, width = 5, height = 6)
+
+# lag
+var.mat.lag<-data.frame(sapply(dat,"[",9))^2
+wts_mat.lag<-sweep(1/var.mat.lag,MARGIN = 2,STATS =colSums(1/var.mat.lag) ,FUN = "/")
+apply(as.data.frame(sapply(dat,"[",8))*as.matrix(wts_mat.lag),2,sum)
+lag_df<-data.frame(lag=stack(as.data.frame(sapply(dat,"[",8)))$values,                         lvl=as.factor(sapply(strsplit(as.character(stack(as.data.frame(sapply(dat,"[",8)))$ind),"\\."),"[",1)))
+
+jdat.lag<-list("M_mu"=as.data.frame(sapply(dat,"[",8))[,-1],"An_mu"=dat[['anc']]$L,"wts_m"=wts_mat.lag[,2:11],"wts_a"=wts_mat.lag[,1])
+jmod.lag<-jags.model(textConnection(mod),n.chains = 4,data = jdat.lag,n.adapt = 1000)
+update(jmod.lag,1000)
+ans.lag<-coda.samples(jmod.lag,c("mu_m","mu_a"),10000)
+
+plot(ans.lag)
+summ.lag<-summary(ans.lag)
+exp(summ.lag$quantiles)
+
+exp(summ.lag$quantiles[,"50%"])
+apply(as.data.frame(sapply(dat,"[",8))*as.matrix(wts_mat.lag),2,sum)
+
+vals.lag<-rbind(as.matrix(ans.lag[[1]]),as.matrix(ans.lag[[2]]),as.matrix(ans.lag[[3]]),as.matrix(ans.lag[[4]]))
+
+apply(vals.lag,2,function(x)median(exp(x)))
+exp(summ.lag$quantiles[,"50%"])
+
+plt_qnts.lag<-matrix(0,10,3)
+rownames(plt_qnts.lag)<-clns[-1]
+colnames(plt_qnts.lag)<-c("2.5%","50%","97.5%")
+for(i in 1:10)plt_qnts.lag[i,]<-quantile(exp(vals.lag[,i+1])/exp(vals.lag[,1]),c(.025,.5,.975))
+
+#plot the results 
+plt_qnts_dat.lag <- as.data.frame(plt_qnts.lag)
+plt_qnts_dat.lag$clones <- rownames(plt_qnts_dat.lag)
+
+plt_qnts_dat.lag$clones <- factor(plt_qnts_dat.lag$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26"))
+
+lagplot <- ggplot(plt_qnts_dat.lag, aes(y = clones, x = plt_qnts_dat.lag[,2], group = clones)) +
+  geom_vline(xintercept = 1, linetype = "dashed")+
+  geom_errorbar(aes(xmin =plt_qnts_dat.lag[,1], xmax =plt_qnts_dat.lag[,3]), width = 0, size =1, color = "darkblue")+
+   geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
+  theme+
+  xlab("Relative change")+
+  ggtitle("lag")+
+   scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26")) +
+  theme(axis.title.y = element_blank())
+ggsave("lagJags.pdf", lagplot, width = 5, height = 6)
+```
 
 #  OLDER
 ## Wrangle into treatments - Jay's 
