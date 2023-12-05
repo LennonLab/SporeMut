@@ -410,6 +410,5 @@ tradeoff <- biofilmData %>%
     geom_point()+
       geom_smooth(method="loess")
   
-
 ```
 

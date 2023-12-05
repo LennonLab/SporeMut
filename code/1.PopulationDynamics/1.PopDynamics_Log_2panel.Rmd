@@ -6,13 +6,16 @@ header-includes:
   - \usepackage{array}
 output: pdf_document
 geometry: margin=2.54cm
+editor_options: 
+  chunk_output_type: console
 ---
   
 # Set working directory and load packages
 ```{r}
 rm(list = ls())
 getwd()
-setwd("~/GitHub/SporeMut")
+#setwd("~/GitHub/SporeMut")
+setwd("~/GitHub/SporMut")
 require("bbmle")
 require("grid")
 require("png")
@@ -24,7 +27,8 @@ sem <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
 
 # Load data
 ```{r}
-data <- read.table("data/1.PopDynamics/spore.transition.txt", header = TRUE)
+#data <- read.table("data/1.PopDynamics/spore.transition.txt", header = TRUE)
+data <- read.table("~/GitHub/SporMut/data/1.PopDynamics/spore.transition.txt", header = TRUE)
 head(data)
 colnames(data)[1] <- "time.h"
 time.d <- data$time/24
@@ -64,7 +68,7 @@ trans.D <- trans[ which(trans$rep == 'D'), ]
 trans.D.neg <- sum(trans.D$veg.ab <0) # 48 negative values
 
 # Data from end of experiment (1000 days)
-end.data <- read.table("data/1.PopDynamics/spore.transition.ltde.txt", header = TRUE)
+end.data <- read.table("~/GitHub/SporMut/data/1.PopDynamics/spore.transition.ltde.txt", header = TRUE)
 time.end.d <- end.data$time.h/24 
 end.data <- data.frame(end.data[1],time.end.d,end.data[2:6])
 end.tot.ab <- end.data$total * 10^(end.data$total_dil) * 10
@@ -219,13 +223,14 @@ write.table(data2, "output/1.PopDynamics/transition.Bayes.repA.txt", sep = "\t",
 
 # Calculate means and SEMs from Bayes estimates
 ```{r}
-data.B.A <- read.table("output/1.PopDynamics/transition.Bayes.repA.txt", header = TRUE)
+#data.B.A <- read.table("output/1.PopDynamics/transition.Bayes.repA.txt", header = TRUE)
+data.B.A <- read.table("~/GitHub/SporMut/output/1.PopDynamics/transition.Bayes.repA.txt", header = TRUE)
 data.B.A <- data.B.A %>% mutate(rep = "A")
-data.B.B <- read.table("output/1.PopDynamics/transition.Bayes.repB.txt", header = TRUE)
+data.B.B <- read.table("~/GitHub/SporMut/output/1.PopDynamics/transition.Bayes.repB.txt", header = TRUE)
 data.B.B <- data.B.B %>% mutate(rep = "B")
-data.B.C <- read.table("output/1.PopDynamics/transition.Bayes.repC.txt", header = TRUE)
+data.B.C <- read.table("~/GitHub/SporMut/output/1.PopDynamics/transition.Bayes.repC.txt", header = TRUE)
 data.B.C <- data.B.C %>% mutate(rep = "C")
-data.B.D <- read.table("output/1.PopDynamics/transition.Bayes.repC.txt", header = TRUE)
+data.B.D <- read.table("~/GitHub/SporMut/output/1.PopDynamics/transition.Bayes.repC.txt", header = TRUE)
 data.B.D <- data.B.D %>% mutate(rep = "D")
 
 data.B <- data.frame(data.B.A[,c(1:2,5)], data.B.B[,c(2,5)], data.B.C[,c(2,5)], data.B.D[,c(2,5)]) 
@@ -400,9 +405,57 @@ graphics.off()
 img <- readPNG("/Users/lennonj/GitHub/SporeMut/output/1.PopDynamics/1.PopDynamics_Log_2panel.png")
 grid.raster(img)
 ```
+# Plot - NEW - Canan 
+```{r}
+library(ggplot2)
+library(scales)
+#data : data.all (above MCMC data)
+#total fit: fit.t
+#vegetative fit: fit.v 
+#spore fit: fit.s 
+#fits are in the chunk above 
 
+mytheme <- theme_bw()+
+  theme(axis.ticks.length = unit(.25, "cm"))+
+  theme(legend.text = element_text(size=12))+
+  theme(axis.text = element_text(size = 14), axis.title.y = element_text(size = 14), 
+        axis.title.x = element_text(size = 14))+
+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+      panel.border = element_rect(fill=NA, colour = "black", 
+size=1))+
+theme(strip.text.x = element_text(size = 14))+
+  theme(legend.title=element_blank())+
+  theme(panel.border = element_rect(fill=NA, colour = "black", 
+size=1)) +
+theme(axis.text.x.top = element_blank(), axis.title.x.top = element_blank(),
+        axis.text.y.right = element_blank(), axis.title.y.right = element_blank())+
+   theme(axis.title.x = element_text(margin=margin(10,0,0)),
+   axis.title.y = element_text(margin=margin(0,10,0,0)),
+   axis.text.x = element_text(margin=margin(10,0,0,0)),
+   axis.text.y = element_text(margin=margin(0,10,0,0)))
 
-# Calculate some biological descriptors of population dynamics
+# predict new data to plot the curves 
+predicted_v <- data.frame(curve = 10^predict(fit.v, data.all), time=data.all$time)
+predicted_s <- data.frame(curve = 10^predict(fit.s, data.all), time=data.all$time)
+
+pop_dyn <- ggplot(data.all, aes(x = time, y = spore))+
+  geom_point(aes(color = "grey25"), alpha = 0.4, size = 3)+
+  geom_point(aes(x = time, y = veg, color = "grey75"), size = 3, alpha = 0.4)+
+  geom_line(data = predicted_v, aes(y=curve, x = time), color = "grey15", linewidth = 1, linetype = "dashed")+
+  geom_line(data = predicted_s, aes(y=curve, x = time), color = "grey85", linewidth = 1, linetype = "dashed")+
+  mytheme+
+  scale_x_continuous(sec.axis=dup_axis(), trans="log10",oob = scales::squish_infinite)+
+  labs(y = expression(paste("Bacteria (CFU ml"^-1,")")), x = "Time (d)")+
+  scale_y_log10(limits = c(10^4.5, 10^8.5),labels = label_log(), sec.axis=dup_axis())+
+scale_color_identity(guide = "legend",
+                        breaks = c("grey25", "grey75"),
+                        labels = c("Spore", "Non-spore"))+
+  theme(legend.position = c(.8,.8))
+ggsave("populationDynamics.pdf", pop_dyn, height = 4, width = 5)
+
+```
+
+# Calculate some aestheticians logical descriptors of population dynamics
 ```{r}
 # Subset data by replicate
 data.all.A <- filter(data.all, rep == "A")

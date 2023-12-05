@@ -58,8 +58,8 @@ library(bayesplot) #plotting posteriors
 
 # After Don 
 # Jags version 
-
-#library(rjags)
+library(rjags)
+library(ggridges)
 ```
 
 ## Load data
@@ -89,12 +89,12 @@ dat4$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat4$Time))
 dat5$Time <- as.numeric(sub("^(\\d+):(\\d+).*", "\\1.\\2", dat5$Time))
 ```
 
-## To skip followint chunks, read this data 
+## To skip following chunks, read this data 
 ```{r}
 input_dat <- read.csv("~/Github/SporMut/code/4.GrowthCurves/data/comp_data.csv")
 ```
 
-## Run Gompertz model - Do not run if you already have the outputs - Read outputs
+## Run Gompertz model - Do not run if you already have the outputs -> Read outputs
 ```{r}
 # Slow process: comment out line below after running
 # Here, read in each strain one-at-a-time (helps with troubleshooting fits)
@@ -215,7 +215,7 @@ S51.fits.out <- read.table("../output/S51_new.fit.parms.txt", sep = ",", header 
 S95.fits.out <- read.table("../output/S95_new.fit.parms.txt", sep = ",", header = TRUE)
 ```
 
-## Repeated growth curves- Do not run if you already have the outputs - Read outputs 
+## Repeated growth curves- Do not run if you already have the outputs -> Read repeated outputs 
 ```{r}
 # Repeated growth curves 
 M13.R <- dat4 %>%
@@ -427,115 +427,6 @@ ggplot(sum_treats_param, aes(x = weave_factors(clone, mutation, evo.type, cell.t
       guides(y.sec = guide_axis_manual(
     breaks = c(0.15, 0.13, 0.11, 0.09, 0.07), labels = NULL))
 ```
-## Relative fitness - Canan -after Don
-```{r}
-treats_param$clone <- factor(treats_param$clone, levels = c("ancestor", "m4", "m13", "m79", "m17", "m19", "m21",  "m41", "m54", "m23","m26"))  
-sum_treats_param$clone <- factor(sum_treats_param$clone, levels = c("ancestor", "m4", "m13", "m79", "m17", "m19", "m21",  "m41", "m54", "m23","m26")) 
-
-# Plot to compare with other analysis
-ggplot(sum_treats_param, aes(y = clone, x = mean_umax))+
-  geom_point(shape = 1, size = 4, color = "black")+
-  geom_point(data = treats_param, aes(x = umax, y = clone), alpha = .3, size = 4, color = "grey")+
-  geom_errorbar(data = sum_treats_param, aes (y = clone, xmin = (mean_umax - sem_umax), xmax = (mean_umax + sem_umax)), width = .2, color = "black")+
-  ggtitle("Maximum growth rate - mean/se")+
-  theme_bw()+
-  theme(axis.ticks.length=unit(.25, "cm"))+
-  theme(legend.title = element_blank(), legend.text = element_text(size=12))+
-  theme(axis.text = element_text(size = 14), 
-  axis.title.x = element_blank(), axis.title.y = element_text(size =14))+
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-
-# relative growth rate - from Don 
-
-w_anc <- (1/treats_param$clones[['ancestor']]$umax.se^2)/sum((1/treats_param[['ancestor']]$umax.se^2))
-anc_mean <- sum(w_anc*treats_param[['anc']]$umax)
-anc_var  <- sum(w_anc*(treats_param[['anc']]$umax-anc_mean)^2)/(1-sum(w_anc^2))
-
-treats_param_anc <- treats_param %>%
-  filter(clone == "ancestor") %>% 
-reframe(w_anc = (1/umax.se^2)/sum((1/umax.se^2)), 
-         mean_anc = sum(w_anc*umax), 
-         var_anc = sum(w_anc*(umax-mean_anc)^2)/(1-sum(w_anc^2)))
-
-w_anc    <- treats_param_anc$w_anc
-mean_anc <- treats_param_anc$mean_anc
-var_anc  <- treats_param_anc$var_anc
-
-treats_param_rel <- treats_param %>% 
-  group_by(clone) %>% 
-    filter(!clone == "ancestor") %>% 
-  reframe(w_clones = (1/umax.se^2)/sum((1/umax.se^2)), 
-         mean_clones = sum(w_clones*umax), 
-         var_clones = sum(w_clones*(umax-mean_anc)^2)/(1-sum(w_anc^2))) %>%
-  mutate(rf = mean_clones/mean_anc) %>%
-mutate(rf_se = mean_clones/mean_anc*sqrt((sqrt(var_clones)/mean_clones)^2+(sqrt(var_anc)/mean_anc)^2), 
-       lower = rf-1.96*rf_se, upper = rf+1.96*rf_se) %>%
-dplyr::select(c('clone', 'rf', 'rf_se', 'lower', 'upper'))%>%
-group_by(clone) %>%
-  summarise(rf = mean(rf), rf_se = mean(rf_se), lower = mean(lower), upper = mean(upper))
-
-
-ggplot(treats_param_rel, aes(y = clone, x = rf))+
-  geom_vline(xintercept = 1, linetype = "dashed")+
-  geom_point(shape = 1, size = 4, color = "black")+
-  #geom_errorbar(aes (y = clone, xmin = (rf - rf_se), xmax = (rf + rf_se)), width = .2, color = "red")+
-  geom_errorbar(aes (y = clone, xmin = lower, xmax = upper), width = .2, color = "black")+
-  ggtitle("Relative fitness - mean/se")+
-  theme_bw()+
-  theme(axis.ticks.length=unit(.25, "cm"))+
-  theme(legend.title = element_blank(), legend.text = element_text(size=12))+
-  theme(axis.text = element_text(size = 14), 
-  axis.title.x = element_blank(), axis.title.y = element_text(size =14))+
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-
-
-treats_param_rel <- treats_param %>% 
-  group_by(clone) %>% 
-    filter(!clone == "ancestor")  %>% 
-  dplyr::select(clone, umax) %>% 
-  mutate(rel = umax/anc_mean) %>% 
-  group_by(clone) %>% 
-  summarise(mean = mean(rel), se = sem(rel))
-
-
-ggplot(treats_param_rel, aes(y = clone, x = mean))+
-  geom_vline(xintercept = 1, linetype = "dashed")+
-  geom_point(shape = 1, size = 4, color = "black")+
-  geom_errorbar(aes (y = clone, xmin = mean - se, xmax = mean + se) , width = .2, color = "black")+
-  ggtitle("Relative fitness - mean/se")+
-  theme_bw()+
-  theme(axis.ticks.length=unit(.25, "cm"))+
-  theme(legend.title = element_blank(), legend.text = element_text(size=12))+
-  theme(axis.text = element_text(size = 14), 
-  axis.title.x = element_blank(), axis.title.y = element_text(size =14))+
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-
-treats_param_rel_m <- treats_param %>% 
-  group_by(clone) %>% 
-    filter(!clone == "ancestor")  %>% 
-  dplyr::select(clone, umax) %>% 
-  mutate(rel = umax/anc_mean)
-
-
-mumax <- brm(rel ~ 0 + clone, data = treats_param_rel_m,
-          family = "gaussian")
-posterior_summary(mumax)
-posteriorumax <- as.array(mumax)
-
-mcmc_intervals(posteriorumax, pars = pars,
-  prob = 0.95, # 95% intervals
-  prob_outer = 1)+
-  geom_vline(xintercept = 1)
-  #scale_y_discrete(labels = labels)+
-  #scale_x_continuous(breaks = c(-0.05, 0.1, 0, 0.05, 0.1), labels = c(-1.05, 1.1, 1, 1.05, 1.1))+
-  xlab("Relative fitness")+
-  ggtitle("µmax-posterior distributions",
-"medians and 95% credible intervals (CI)")+
-theme
-ggsave("umax-clones.pdf", umax1, height = 5, width = 5)
-
-```
-
 ## Remake Megan's figure for the manuscript - Canan
 ```{r}
 treats_param_long <- treats_param %>%
@@ -884,7 +775,7 @@ plot(result2LR)
 
 ## Stats - Custom plots BAYESIAN - Canan
 ```{r}
-theme <-  theme_bw()+
+mytheme <-  theme_bw()+
   theme(legend.position = 'none')+
   theme(axis.ticks.length = unit(.25, "cm"))+
   theme(legend.text = element_text(size=12))+
@@ -915,7 +806,7 @@ K1 <- mcmc_areas(posteriorK1, pars = pars,
   xlab("Relative change")+
  ggtitle("K - posterior distributions",
 "medians and 95% credible intervals(CI)")+
-  theme
+  mytheme
 ggsave("K-clones.pdf", K1, height = 5, width = 5)
 
 #umax
@@ -930,7 +821,7 @@ umax1 <- mcmc_areas(posteriorumax1, pars = pars,
   xlab("Relative fitness")+
   ggtitle("µmax-posterior distributions",
 "medians and 95% credible intervals (CI)")+
-theme
+mytheme
 ggsave("umax-clones.pdf", umax1, height = 5, width = 5)
 
 #umax intervals
@@ -945,7 +836,7 @@ umax1 <- mcmc_intervals(posteriorumax1, pars = pars,
   xlab("Relative fitness")+
   ggtitle("µmax-posterior distributions",
 "medians and 95% credible intervals (CI)")+
-theme
+mytheme
 ggsave("umax-clones.pdf", umax1, height = 5, width = 5)
 
 #L
@@ -959,9 +850,10 @@ lag1 <- mcmc_areas(posteriorL1, pars = pars,
   scale_x_continuous(breaks = c(-3, -2, -1, 0, 1), labels = c(-4, -3, -2, 1, 2))+
   xlab("Relative change")+
   ggtitle("lag - posterior distributions",
-"medians and 95% credible intervals (CI)")+theme
+"medians and 95% credible intervals (CI)")+mytheme
 ggsave("lag-clones.pdf", lag1, height = 5, width = 5)
 ```
+
 ## Bayesian Random effect plots - Canan
 ```{r}
 posteriorK2 <- as.array(m2K)
@@ -988,7 +880,7 @@ K2_random <- mcmc_areas(posteriorK2, pars = pars_random,
            alpha = .2,fill = "grey")+
   scale_y_discrete(labels = random_labels)+
   xlab("Estimate")+
-  ggtitle("K - random effects")+theme
+  ggtitle("K - random effects")+mytheme
 ggsave("K-mutation-random.pdf", K2_random , height = 5, width = 5)
 
 # K - fixed
@@ -1001,7 +893,7 @@ K2_fixed <- mcmc_areas(posteriorK2, pars = pars_fixed,
   scale_y_discrete(labels = fixed_labels)+
   scale_x_continuous(breaks = c(-0.2, 0, 0.2), labels = c(-1.2, 2, 1.2))+
   xlab("Relative change")+
-  ggtitle("K - fixed effects")+theme
+  ggtitle("K - fixed effects")+mytheme
 ggsave("K-mutation-fixed.pdf", K2_fixed , height = 5, width = 5)
 
 # umax - random
@@ -1013,7 +905,7 @@ umax2_random <- mcmc_areas(posteriorumax2, pars = pars_random,
            alpha = .2,fill = "grey")+
   scale_y_discrete(labels = random_labels)+
   xlab("Relative fitness")+
-  ggtitle("µmax - random effects")+theme
+  ggtitle("µmax - random effects")+mytheme
 ggsave("umax-mutation-random.pdf", umax2_random , height = 5, width = 5)
 
 # mumax - fixed
@@ -1026,7 +918,7 @@ umax2_fixed <- mcmc_areas(posteriorumax2, pars = pars_fixed,
   scale_y_discrete(labels = fixed_labels)+
   scale_x_continuous(breaks = c(-0.2, -0.1, 0, 0.1, 0.2), labels = c(-1.2, -1.1, 1, 1.1, 1.2))+
   xlab("Relative fitness")+
-  ggtitle("µmax - fixed effects")+theme
+  ggtitle("µmax - fixed effects")+mytheme
 ggsave("umax-mutation-fixed.pdf", umax2_fixed , height = 5, width = 5)
 
 # L - random
@@ -1038,7 +930,7 @@ lag2_random <- mcmc_areas(posteriorL2, pars = pars_random,
            alpha = .2,fill = "grey")+
   scale_y_discrete(labels = random_labels)+
   xlab("Relative change")+
-  ggtitle("lag - random effects")+theme
+  ggtitle("lag - random effects")+mytheme
 ggsave("lag-mutation-random.pdf", lag2_random , height = 5, width = 5)
 
 # L - fixed
@@ -1052,17 +944,20 @@ lag2_fixed <- mcmc_areas(posteriorL2, pars = pars_fixed,
   scale_y_discrete(labels = fixed_labels)+
   scale_x_continuous(breaks = c(-3, -2, -1, 0, 1), labels = c(-4, -3, -2, 1, 2))+
   xlab("Relative change")+
-  ggtitle("lag - fixed effects")+theme
+  ggtitle("lag - fixed effects")+mytheme
 ggsave("lag-mutation-fixed.pdf", lag2_fixed , height = 5, width = 5)
 
 ```
-## Models with rjags - Don 
+
+## Models with rjags - Don -> Goes to the manuscript
 ```{r}
 ####load the data####
-#grab the clone names
-clns<-c("anc","M26","M23","M54","M41","M21","M19","M17","M79","M13","M4")
-
+input_dat <- read.csv("~/Github/SporMut/code/4.GrowthCurves/data/comp_data.csv")
 head(input_dat)
+####load the data####
+#grab the clone names
+clns<-c("ancestor","M26","M23","M54","M41","M21","M19","M17","M79","M13","M4")
+
 dat_order<-c(1:6,unlist(lapply(paste0("^",clns[-1],"_"),function(x)grep(x,input_dat$Curve))))
 ord_list<-rep(clns,each=6)
 
@@ -1076,10 +971,24 @@ wts_mat<-sweep(1/var.mat,MARGIN = 2,STATS =colSums(1/var.mat) ,FUN = "/")
 
 #find weighted means
 apply(as.data.frame(sapply(dat,"[",6))*as.matrix(wts_mat),2,sum)
+####
+#plot raw: these are not the real mean and se because each point has
+#different amounts of uncertainty that we cannot just throw away.
+naive_mean<-apply(as.data.frame(sapply(dat,"[",6)),2,mean)
+naive_se<-apply(as.data.frame(sapply(dat,"[",6)),2,sd)/sqrt(6)
+plt_naive<-t(rbind(naive_mean-1.96*naive_se,naive_mean,naive_mean+1.96*naive_se))
+plot(plt_naive[11:2,2],1:10,ylab="clone",xlab='naive estimate of umax',
+     xlim=c(0.01,.16),yaxt='n',pch=21,bg=16,bty='n',main=bquote(mu*'max'))
+for(i in 11:2)points(dat[[i]]$umax,rep(12-i,6),pch=21,col="skyblue",bg="skyblue")
+points(plt_naive[11:2,2],1:10,pch=21,bg=16)
+arrows(plt_naive[11:2,2],1:10,plt_naive[11:2,1],1:10,length = 0)
+arrows(plt_naive[11:2,2],1:10,plt_naive[11:2,3],1:10,length = 0)
+abline(v=1,lty=2)
+axis(side = 2,at=1:10,labels = clns[11:2],las=2)
+####
 
 #create a long-form data.frame for later use
-umax_df<-data.frame(umax=stack(as.data.frame(sapply(dat,"[",6)))$values,
-                            lvl=as.factor(sapply(strsplit(as.character(stack(as.data.frame(sapply(dat,"[",6)))$ind),"\\."),"[",1)))
+umax_df<-data.frame(umax=stack(as.data.frame(sapply(dat,"[",6)))$values,                            lvl=as.factor(sapply(strsplit(as.character(stack(as.data.frame(sapply(dat,"[",6)))$ind),"\\."),"[",1)))
                     
 # now let's do it bayes-style. from what I gather from the code, the sampling is simply done using the 6
 # replicates for each clone and the ancestor. So, I will do that I will assume that the umax for each rep (for each clone)
@@ -1111,7 +1020,7 @@ mod<-"model{
 }"     
 #Fit it
 #gather data to feed jags
-jdat<-list("M_mu"=as.data.frame(sapply(dat,"[",6))[,-1],"An_mu"=dat[['anc']]$umax,"wts_m"=wts_mat[,2:11],"wts_a"=wts_mat[,1])
+jdat<-list("M_mu"=as.data.frame(sapply(dat,"[",6))[,-1],"An_mu"=dat[['ancestor']]$umax,"wts_m"=wts_mat[,2:11],"wts_a"=wts_mat[,1])
 #build the model object
 jmod<-jags.model(textConnection(mod),n.chains = 4,data = jdat,n.adapt = 1000)
 #update it
@@ -1119,8 +1028,7 @@ update(jmod,1000)
 #sample it
 ans<-coda.samples(jmod,c("mu_m","mu_a"),10000)
 #look at plot to make sure they converge
-
-plot(ans)
+#plot(ans)
 #the samples look great so sets peek at the summaries of the posterior dists
 summ<-summary(ans)
 #check out the median of the posterior estimates
@@ -1149,35 +1057,209 @@ rownames(plt_qnts)<-clns[-1]
 colnames(plt_qnts)<-c("2.5%","50%","97.5%")
 for(i in 1:10)plt_qnts[i,]<-quantile(exp(vals[,i+1])/exp(vals[,1]),c(.025,.5,.975))
 
-#plot the results 
-plt_qnts_dat <- as.data.frame(plt_qnts)
-plt_qnts_dat$clones <- rownames(plt_qnts_dat)
+abs_val <-matrix(0,11,3)
+rownames(abs_val)<-clns
+colnames(abs_val)<-c("2.5%","50%","97.5%")
+for(i in 1:11)abs_val[i,]<-quantile(exp(vals[,i]),c(.025,.5,.975))
 
-plt_qnts_dat$clones <- factor(plt_qnts_dat$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26"))
+#(0.8615720+0.8223441)/2
+#(0.6417162+0.6015644)/2
+#(1.1520816/1.1154578)/2
+#(0.8857826+  1.0959868+ 0.7142084 +0.6022107+0.6993294)/5
+#(0.6771939+0.8612130+0.5471092+0.4615733+0.5109680)/5
+#(0.5159474 + 0.6714936 + 0.4180423 + 0.3519553 + 0.3694591)/5
 
-umaxplot <- ggplot(plt_qnts_dat, aes(y = clones, x = plt_qnts_dat[,2], group = clones))+
-  geom_vline(xintercept = 1, linetype = "dashed")+
-  geom_errorbar(aes(xmin =plt_qnts_dat[,1], xmax =plt_qnts_dat[,3]), width = 0, size =1, color = "darkblue")+
+#(0.9319655+0.4950823+0.5628965)/3
+#(1.1811232+0.6485473+0.7213804)/3
+#(1.5009746+0.8493737+0.9197495)/3
+
+#(0.4950823+0.5628965)/2
+#(0.6485473+0.7213804)/2
+#(0.8493737+0.9197495)/2
+
+#make the relative fitness vs close plots
+plot(plt_qnts[10:1,2],1:10,ylab="clone",xlab='Relative fitness',
+     xlim=c(0,2),yaxt='n',pch=21,bg=16,bty='n',main=bquote(mu*'max'))
+arrows(plt_qnts[10:1,2],1:10,plt_qnts[10:1,1],1:10,length = 0)
+arrows(plt_qnts[10:1,2],1:10,plt_qnts[10:1,3],1:10,length = 0)
+abline(v=1,lty=2)
+axis(side = 2,at=1:10,labels = clns[11:2],las=2)
+
+
+# Jay's theme
+mytheme <- theme_bw()+
+  theme(axis.ticks.length = unit(.25, "cm"))+
+  theme(legend.text = element_text(size=12))+
+  theme(axis.text = element_text(size = 14), axis.title.y = element_text(size = 14), 
+        axis.title.x = element_text(size = 14))+
+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+      panel.border = element_rect(fill=NA, colour = "black", 
+size=1))+
+theme(strip.text.x = element_text(size = 14))+
+  theme(legend.title=element_blank())+
+  theme(panel.border = element_rect(fill=NA, colour = "black", 
+size=1)) +
+theme(axis.text.x.top = element_blank(), axis.title.x.top = element_blank(),
+        axis.text.y.right = element_blank(), axis.title.y.right = element_blank())+
+   theme(axis.title.x = element_text(margin=margin(10,0,0)),
+   axis.title.y = element_text(margin=margin(0,10,0,0)),
+   axis.text.x = element_text(margin=margin(10,0,0,0)),
+   axis.text.y = element_text(margin=margin(0,10,0,0)))
+
+
+#ggplot
+umax_post<-as.data.frame(plt_qnts)
+umax_post$clones<-c("m26", "m23", "m54", "m41", "m21", "m19", "m17", "m79", "m13", "m4")
+umax_post$clones <- factor(umax_post$clones, c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26"))
+
+umaxplot <- ggplot(umax_post, aes(y = clones, x = umax_post[,2], group = clones))+
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey25")+
+  geom_errorbar(aes(xmin =umax_post[,1], xmax =umax_post[,3]), width = 0, size =1, color = "darkblue")+
    geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
-  theme+
+  mytheme+
   xlab("Relative fitness")+
   ggtitle(expression( ~ mu * "max d"^-1))+
-   scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26"))+
+   #scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26"))+
   theme(axis.title.y = element_blank())
-ggsave("umaxJags.pdf", umaxplot, width = 5, height = 6)
+ggsave("umaxJags-rel.pdf", umaxplot, width = 5, height = 6)
 
+#plot as distribution
+data_df <- as.data.frame(exp(vals))
+data_df_rel <- data_df[,2:11]/data_df[,1]
+names(data_df_rel) <- c("m26", "m23", "m54", "m41", "m21", "m19", "m17", "m79", "m13", "m4")
+
+data_long <- data_df_rel %>%
+  pivot_longer(cols = m26:m4, names_to = "clones", values_to = "dists")
+
+data_long$clones <- factor(data_long$clones, c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26"))
+
+clone <- levels(data_long$clones)
+clones <- c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26")
+
+dist.umax.rel <- ggplot(data_long, aes(y = as.numeric(clones), x = dists, group = clones, 
+                           fill = 0.5 - abs(0.5 - stat(ecdf))))+
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey25")+
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE, 
+                      rel_min_height = 0.005, alpha = 0.5, scale = 2, color = "grey25" )+
+  xlab("Relative µmax")+
+  scale_x_continuous(limits = c(0, 2), sec.axis=dup_axis())+
+  mytheme+
+  theme(legend.position = c(.9,.8))+
+   scale_fill_gradient(low = "white", high = "grey50",
+                      name = "Tail prob.")+
+  theme(axis.title.y = element_blank())+
+  scale_y_continuous(breaks = 1:length(clone),
+                     labels = clones,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(clone),
+                                         labels = clones))
+
+ggsave("umax_jags_dist.pdf", dist.umax.rel, width = 5, height = 5)
+
+```
+
+## Don -> Coefficients - Same analysis as we did but with jags - OVERWRITES VARIABLES OF THE CHUNK ABOVE
+```{r}
+one_hot<-cbind(anc=rep(1,dim(umax_df)[1]),sapply(clns[-1],function(x)as.numeric(umax_df$lvl==x)))
+
+#this model is using a Gaussian with a single variance and fitting the 
+# ancestor as the intercept and each clone as a different beta coef. The same as 
+# you would get from the R formula umax~clone where the ancestor is coded as the first factor in "clone"
+# here we use a different version of the weights because we don't want them relative by clone 
+mod_1<-"model{
+     for(i in 1:n){
+       y[i]~dnorm(mu[i],tau/wts[i])
+       mu[i]<-inprod(X[i,],b)
+     }
+     #priors
+     for(i in 1:11){
+      b[i]~dnorm(0,.001)
+     }
+     tau~dgamma(.01,.01)
+     
+}"     
+#Fit it
+jdat<-list("y"=umax_df$umax,"X"=one_hot,"n"=dim(umax_df)[1],"wts"=1000*stack(var.mat)$value)
+jmod_1<-jags.model(textConnection(mod_1),n.chains = 4,data = jdat,n.adapt = 1000)
+update(jmod_1,1000)
+#sample the betas. we will use these to reconstruct the previous graph and the umax-clones.pdf graph
+umax_dif<-coda.samples(jmod_1,c("b"),10000)
+summary(umax_dif)
+# let's peek at the tau to make sure it is converging 
+#plot(coda.samples(jmod_1,c("tau"),10000))
+
+#next, we will use the posterior chains to create relative fitness from coefs
+
+#I'll combine chains 
+chains<-rbind(as.matrix(umax_dif[[1]]),as.matrix(umax_dif[[2]]),as.matrix(umax_dif[[3]]),as.matrix(umax_dif[[4]]))
+
+rel_fit<-t(sapply(paste0("b[",2:11,"]"),function(x)quantile((as.matrix(chains)[,"b[1]"]+as.matrix(chains)[,x])/(as.matrix(chains)[,"b[1]"]),c(.025,.5,.975))))
+
+rownames(rel_fit)<-clns[-1]
+
+#plot these. they should be very similar to the last graph
+
+plot(rel_fit[10:1,2],1:10,ylab="clone",xlab='Fitness difference',xlim=c(0,2),yaxt='n',pch=21,bg=16,bty='n',main=bquote(mu*'max'~'Version 2'))
+arrows(rel_fit[10:1,2],1:10,rel_fit[10:1,1],1:10,length = 0)
+arrows(rel_fit[10:1,2],1:10,rel_fit[10:1,3],1:10,length = 0)
+abline(v=1,lty=2)
+axis(side = 2,at=1:10,labels = clns[11:2],las=2)
+#compared to the previous,method this one slightly diff variation around estimates
+# the estimates themselves are very close
+
+# ggplot
+rel_fit<-as.data.frame(rel_fit)
+rel_fit$clones<-c("m26", "m23", "m54", "m41", "m21", "m19", "m17", "m79", "m13", "m4")
+rel_fit$clones <- factor(umax_post$clones, c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26"))
+
+umaxplot_coef <- ggplot(rel_fit, aes(y = clones, x = rel_fit[,2], group = clones))+
+  geom_vline(xintercept = 1, linetype = "dashed")+
+  geom_errorbar(aes(xmin =rel_fit[,1], xmax =rel_fit[,3]), width = 0, size =1, color = "darkblue")+
+   geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
+  mytheme+
+  xlab("Relative fitness")+
+  ggtitle(expression( ~ mu * "max d"^-1))+
+  theme(axis.title.y = element_blank())
+ggsave("umaxJags_coef.pdf", umaxplot_coef, width = 5, height = 6)
+
+# Distribution style
+
+coef_data_df <- as.data.frame(chains)
+coef_data_df_rel <- (coef_data_df[2:11]+coef_data_df[,1])/coef_data_df[,1]
+names(coef_data_df_rel) <- c("m26", "m23", "m54", "m41", "m21", "m19", "m17", "m79", "m13", "m4")
+
+coef_data_long <- coef_data_df_rel %>%
+  pivot_longer(cols = m26:m4, names_to = "clones", values_to = "coefficients")
+
+coef_data_long$clones <- factor(coef_data_long$clones, c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26"))
+
+rel_dist_plot <- ggplot(coef_data_long, aes(y = clones, x = coefficients, group = clones, 
+                           fill = 0.5 - abs(0.5 - stat(ecdf))))+
+  geom_vline(xintercept = 1, color = "grey25", linetype = "dashed")+
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE, 
+                      rel_min_height = 0.0005, alpha = 0.5, scale = 2, color = "grey50")+
+  xlab("Relative fitness")+
+  mytheme+
+  theme(axis.title.y = element_blank())+
+   scale_fill_gradient(low = "white", high = "#87CEFF",
+                      name = "Tail prob.")
+ggsave("umax_rel_dist_plot.pdf", rel_dist_plot, width = 5, height = 6)
+```
+
+## Yield and lag - Don's Bayes 
+```{r}
 # K
 var.matK<-data.frame(sapply(dat,"[",5))^2
 wts_matK<-sweep(1/var.matK,MARGIN = 2,STATS =colSums(1/var.matK) ,FUN = "/")
 apply(as.data.frame(sapply(dat,"[",4))*as.matrix(wts_matK),2,sum)
 K_df<-data.frame(K=stack(as.data.frame(sapply(dat,"[",4)))$values,                            lvl=as.factor(sapply(strsplit(as.character(stack(as.data.frame(sapply(dat,"[",4)))$ind),"\\."),"[",1)))
 
-jdatK<-list("M_mu"=as.data.frame(sapply(dat,"[",4))[,-1],"An_mu"=dat[['anc']]$A,"wts_m"=wts_matK[,2:11],"wts_a"=wts_matK[,1])
+jdatK<-list("M_mu"=as.data.frame(sapply(dat,"[",4))[,-1],"An_mu"=dat[['ancestor']]$A,"wts_m"=wts_matK[,2:11],"wts_a"=wts_matK[,1])
 jmodK<-jags.model(textConnection(mod),n.chains = 4,data = jdatK,n.adapt = 1000)
 update(jmodK,1000)
 ansK<-coda.samples(jmodK,c("mu_m","mu_a"),10000)
 
-plot(ansK)
+#plot(ansK)
 summK<-summary(ansK)
 exp(summK$quantiles)
 
@@ -1189,40 +1271,81 @@ valsK<-rbind(as.matrix(ansK[[1]]),as.matrix(ansK[[2]]),as.matrix(ansK[[3]]),as.m
 apply(valsK,2,function(x)median(exp(x)))
 exp(summK$quantiles[,"50%"])
 
-plt_qntsK<-matrix(0,10,3)
-rownames(plt_qntsK)<-clns[-1]
+plt_qntsK<-matrix(0,11,3)
+rownames(plt_qntsK)<-clns
 colnames(plt_qntsK)<-c("2.5%","50%","97.5%")
-for(i in 1:10)plt_qntsK[i,]<-quantile(exp(valsK[,i+1])/exp(valsK[,1]),c(.025,.5,.975))
+
+#It doesnt make sense to calculate relative change for the yield and lag
+for(i in 1:11)plt_qntsK[i,]<-quantile(exp(valsK[,i]),c(.025,.5,.975))
 
 #plot the results 
 plt_qnts_datK <- as.data.frame(plt_qntsK)
 plt_qnts_datK$clones <- rownames(plt_qnts_datK)
 
-plt_qnts_datK$clones <- factor(plt_qnts_datK$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26"))
+plt_qnts_datK$clones <- factor(plt_qnts_datK$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26", "ancestor"))
 
-Kplot <- ggplot(plt_qnts_datK, aes(y = clones, x = plt_qnts_datK[,2], group = clones)) +
-  geom_vline(xintercept = 1, linetype = "dashed")+
+Kplot <- ggplot(plt_qnts_datK, aes(y = clones, x = plt_qnts_datK[,2], group = clones)) + geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
   geom_errorbar(aes(xmin =plt_qnts_datK[,1], xmax =plt_qnts_datK[,3]), width = 0, size =1, color = "darkblue")+
-   geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
-  theme+
-  xlab("Relative change")+
-  ggtitle("K")+
-   scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26")) +
+   
+  mytheme+
+  xlab("Maximum yield")+
+   scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26", "ancestor")) +
   theme(axis.title.y = element_blank())
 ggsave("KJags.pdf", Kplot, width = 5, height = 6)
+
+# Distribution version
+
+#here I'll calculate relative 
+#plot as distribution
+distK_data <- as.data.frame(exp(valsK))
+names(distK_data) <- clns
+
+dataK_df_rel <- distK_data[,2:11]/(distK_data[,1])
+names(dataK_df_rel) <- clns[-1]
+
+distK_data_long <- dataK_df_rel %>%
+  pivot_longer(cols = M26:M4, names_to = "clones", values_to = "dists")
+
+distK_data_long$clones <- factor(distK_data_long$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26", "ancestor"))
+
+clone <- levels(distK_data_long$clones)[-11]
+clones <- c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26")
+
+Kdist <- ggplot(distK_data_long, aes(y = as.numeric(clones), x = dists, group = clones, 
+                           fill = 0.5 - abs(0.5 - stat(ecdf))))+
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey25")+
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE, 
+                      rel_min_height = 0.005, alpha = 0.5, scale = 2, color = "grey25")+
+ 
+  xlab("Relative yield")+
+  scale_x_continuous(limits = c(0.2, 2), sec.axis=dup_axis())+
+  mytheme+
+   theme(legend.position = c(.9,.8))+
+   theme(axis.title.y = element_blank())+
+   scale_fill_gradient(low = "white", high = "grey50",
+                      name = "Tail prob.")+
+ scale_y_continuous(breaks = 1:length(clone),
+                     labels = clones,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(clone),
+                                         labels = clones))
+ 
+ggsave("Kjags_dist.pdf", Kdist, width = 5, height = 6)
+  
 
 # lag
 var.mat.lag<-data.frame(sapply(dat,"[",9))^2
 wts_mat.lag<-sweep(1/var.mat.lag,MARGIN = 2,STATS =colSums(1/var.mat.lag) ,FUN = "/")
 apply(as.data.frame(sapply(dat,"[",8))*as.matrix(wts_mat.lag),2,sum)
-lag_df<-data.frame(lag=stack(as.data.frame(sapply(dat,"[",8)))$values,                         lvl=as.factor(sapply(strsplit(as.character(stack(as.data.frame(sapply(dat,"[",8)))$ind),"\\."),"[",1)))
 
-jdat.lag<-list("M_mu"=as.data.frame(sapply(dat,"[",8))[,-1],"An_mu"=dat[['anc']]$L,"wts_m"=wts_mat.lag[,2:11],"wts_a"=wts_mat.lag[,1])
+lag_df<-data.frame(lag=stack(as.data.frame(sapply(dat,"[",8)))$values,                       lvl=as.factor(sapply(strsplit(as.character(stack(as.data.frame(sapply(dat,"[",8)))$ind),"\\."),"[",1)))
+
+jdat.lag<-list("M_mu"=as.data.frame(sapply(dat,"[",8))[,-1],"An_mu"=dat[['ancestor']]$L,"wts_m"=wts_mat.lag[,2:11],"wts_a"=wts_mat.lag[,1])
 jmod.lag<-jags.model(textConnection(mod),n.chains = 4,data = jdat.lag,n.adapt = 1000)
 update(jmod.lag,1000)
 ans.lag<-coda.samples(jmod.lag,c("mu_m","mu_a"),10000)
 
-plot(ans.lag)
+#plot(ans.lag)
 summ.lag<-summary(ans.lag)
 exp(summ.lag$quantiles)
 
@@ -1234,28 +1357,246 @@ vals.lag<-rbind(as.matrix(ans.lag[[1]]),as.matrix(ans.lag[[2]]),as.matrix(ans.la
 apply(vals.lag,2,function(x)median(exp(x)))
 exp(summ.lag$quantiles[,"50%"])
 
-plt_qnts.lag<-matrix(0,10,3)
-rownames(plt_qnts.lag)<-clns[-1]
+plt_qnts.lag<-matrix(0,11,3)
+rownames(plt_qnts.lag)<-clns
 colnames(plt_qnts.lag)<-c("2.5%","50%","97.5%")
-for(i in 1:10)plt_qnts.lag[i,]<-quantile(exp(vals.lag[,i+1])/exp(vals.lag[,1]),c(.025,.5,.975))
+for(i in 1:11)plt_qnts.lag[i,]<-quantile(exp(vals.lag[,i]),c(.025,.5,.975))
 
 #plot the results 
 plt_qnts_dat.lag <- as.data.frame(plt_qnts.lag)
 plt_qnts_dat.lag$clones <- rownames(plt_qnts_dat.lag)
 
-plt_qnts_dat.lag$clones <- factor(plt_qnts_dat.lag$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26"))
+plt_qnts_dat.lag$clones <- factor(plt_qnts_dat.lag$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26", "ancestor"))
 
 lagplot <- ggplot(plt_qnts_dat.lag, aes(y = clones, x = plt_qnts_dat.lag[,2], group = clones)) +
-  geom_vline(xintercept = 1, linetype = "dashed")+
   geom_errorbar(aes(xmin =plt_qnts_dat.lag[,1], xmax =plt_qnts_dat.lag[,3]), width = 0, size =1, color = "darkblue")+
    geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
-  theme+
-  xlab("Relative change")+
+  mytheme+
+  xlab("Lag time")+
   ggtitle("lag")+
-   scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26")) +
+   scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26", "ancestor")) +
   theme(axis.title.y = element_blank())
 ggsave("lagJags.pdf", lagplot, width = 5, height = 6)
+
+# Distribution version
+
+#plot as distribution
+distL_data <- as.data.frame(exp(vals.lag))
+names(distL_data) <- clns
+
+datalag_df_rel <- distL_data[,2:11]/(distL_data[,1])
+names(datalag_df_rel) <- clns[-1]
+
+distL_data_long <- datalag_df_rel %>%
+  pivot_longer(cols = M26:M4, names_to = "clones", values_to = "dists")
+
+distL_data_long$clones <- factor(distL_data_long$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26"))
+
+clone <- levels(distL_data_long$clones)
+clones <- c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26")
+
+Ldist <- ggplot(distL_data_long, aes(y = as.numeric(clones), x = dists, group = clones, 
+                           fill = 0.5 - abs(0.5 - stat(ecdf))))+
+   geom_vline(xintercept = 1, color = "grey25", linetype = "dashed")+
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE, 
+                      rel_min_height = 0.005, alpha = 0.5, scale = 2, color = "grey25" )+
+  theme(axis.title.y = element_blank())+
+  
+  xlab("Relative lag time")+
+  mytheme+
+     theme(legend.position = c(.9,.8))+
+   theme(axis.title.y = element_blank())+
+  scale_x_continuous(limits = c(0, 2), sec.axis=dup_axis())+
+   scale_fill_gradient(low = "white", high = "grey50",
+                      name = "Tail prob.")+
+  scale_y_continuous(breaks = 1:length(clone),
+                     labels = clones,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(clone),
+                                         labels = clones))
+ 
+
+ggsave("lag_jags_dist.pdf", Kdist, width = 5, height = 6)
+
+
+ 
+  xlab("Relative yield")+
+  scale_x_continuous(limits = c(0, 3), )+
+  mytheme+
+   theme(legend.position = c(.9,.8))+
+   theme(axis.title.y = element_blank())+
+   scale_fill_gradient(low = "white", high = "grey50",
+                      name = "Tail prob.")+
+ scale_y_continuous(breaks = 1:length(clone),
+
+  
 ```
+
+## Coefficients - Bayes version - Don - Overwrites some of the previous variables
+```{r}
+#Do the same analysis but in the way that Lennon Lab did it
+#Next I will do this with the long-form data
+
+var.matK<-data.frame(sapply(dat,"[",5))^2
+wts_matK<-sweep(1/var.matK,MARGIN = 2,STATS =colSums(1/var.matK) ,FUN = "/")
+apply(as.data.frame(sapply(dat,"[",4))*as.matrix(wts_matK),2,sum)
+K_df<-data.frame(K=stack(as.data.frame(sapply(dat,"[",4)))$values,                            lvl=as.factor(sapply(strsplit(as.character(stack(as.data.frame(sapply(dat,"[",4)))$ind),"\\."),"[",1)))
+
+#set up data for one-hot coding
+one_hotK<-cbind(ancestor=rep(1,dim(K_df)[1]),sapply(clns[-1],function(x)as.numeric(K_df$lvl==x)))
+
+#this model is using a Gaussian with a single variance and fitting the 
+# ancestor as the intercept and each clone as a different beta coef. The same as 
+# you would get from the R formula umax~clone where the ancestor is coded as the first factor in "clone"
+# here we use a different version of the weights because we don't want them relative by clone 
+mod_1<-"model{
+     for(i in 1:n){
+       y[i]~dnorm(mu[i],tau/wts[i])
+       mu[i]<-inprod(X[i,],b)
+     }
+     #priors
+     for(i in 1:11){
+      b[i]~dnorm(0,.001)
+     }
+     tau~dgamma(.01,.01)
+     
+}"     
+#Fit it
+
+jdatK<-list("y"=K_df$K,"X"=one_hotK,"n"=dim(K_df)[1],"wts"=1000*stack(var.matK)$value)
+jmod_1<-jags.model(textConnection(mod_1),n.chains = 4,data = jdatK,n.adapt = 1000)
+update(jmod_1,1000)
+#sample the betas. we will use these to reconstruct the previous graph and the umax-clones.pdf graph
+K_dif<-coda.samples(jmod_1,c("b"),10000)
+summary(K_dif)
+# let's peek at the tau to make sure it is converging 
+#plot(coda.samples(jmod_1,c("tau"),10000))
+
+#next, we will use the posterior chains to create relative fitness from coefs
+Kvals<-rbind(as.matrix(K_dif[[1]]),as.matrix(K_dif[[2]]),as.matrix(K_dif[[3]]),as.matrix(K_dif[[4]]))
+coef_fitK <-t(sapply(paste0("b[",2:11,"]"),function(x)quantile((as.matrix(K_dif)[,"b[1]"]+as.matrix(K_dif)[,x]),c(.025,.5,.975))))
+
+anq <- quantile(as.matrix(K_dif[,"b[1]"]),c(.025,.5,.975))
+coef_fitK_an <- rbind(anq, coef_fitK)
+
+rownames(coef_fitK_an)<-clns
+
+coef_fitK_an_dat <- as.data.frame(coef_fitK_an)
+coef_fitK_an_dat$clones <- rownames(coef_fitK_an_dat)
+coef_fitK_an_dat$clones <- factor(coef_fitK_an_dat$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26", "ancestor"))
+
+Kcoefplot <- ggplot(coef_fitK_an_dat, aes(y = clones, x = coef_fitK_an_dat[,2], group = clones))+
+  geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
+  mytheme+
+  geom_errorbar(aes(xmin =coef_fitK_an_dat[,1], xmax =coef_fitK_an_dat[,3]), width = 0, size =1, color = "darkblue")+
+  scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26", "ancestor")) +
+  xlab("Maximum yield")+
+  theme(axis.title.y = element_blank())
+ggsave("KJags_coef.pdf", Kcoefplot, width = 5, height = 6)
+
+#compared to the previous,method this one slightly diff variation around estimates
+# the estimates themselves are very close
+
+#plot as distribution
+coef_data <- as.data.frame(Kvals)
+names(coef_data) <- clns
+
+coef_data[,2:11] <- coef_data[,2:11] +coef_data[,1] 
+coef_data_long <- coef_data %>%
+  pivot_longer(cols = ancestor:M4, names_to = "clones", values_to = "coefficients")
+
+coef_data_long$clones <- factor(coef_data_long$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26", "ancestor"))
+
+KcoefDist <- ggplot(coef_data_long, aes(y = clones, x = coefficients, group = clones, 
+                           fill = 0.5 - abs(0.5 - stat(ecdf))))+
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE, 
+                      rel_min_height = 0.0005, alpha = 0.5, scale = 2, color = "grey50" 
+                      )+
+   scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26", "ancestor")) +
+  theme(axis.title.y = element_blank())+
+  xlab("Relative change")+
+  scale_x_continuous(limits = c(0.15,0.4))+
+  mytheme+
+   scale_fill_gradient(low = "white", high = "#87CEFF",
+                      name = "Tail prob.")
+
+ggsave("KJags_coef_dist.pdf", KcoefDist, width = 5, height = 6)
+ 
+
+# LAG - will overwrite variables 
+#set up data for one-hot coding
+
+var.mat.lag<-data.frame(sapply(dat,"[",9))^2
+wts_mat.lag<-sweep(1/var.mat.lag,MARGIN = 2,STATS =colSums(1/var.mat.lag) ,FUN = "/")
+apply(as.data.frame(sapply(dat,"[",8))*as.matrix(wts_mat.lag),2,sum)
+lag_df<-data.frame(lag=stack(as.data.frame(sapply(dat,"[",8)))$values,                            lvl=as.factor(sapply(strsplit(as.character(stack(as.data.frame(sapply(dat,"[",8)))$ind),"\\."),"[",1)))
+
+#set up data for one-hot coding
+one_hot_lag<-cbind(ancestor=rep(1,dim(lag_df)[1]),sapply(clns[-1],function(x)as.numeric(lag_df$lvl==x)))
+
+jdat.lag<-list("y"=lag_df$lag,"X"=one_hot_lag,"n"=dim(lag_df)[1],"wts"=1000*stack(var.mat.lag)$value)
+jmod_1<-jags.model(textConnection(mod_1),n.chains = 4,data = jdat.lag,n.adapt = 1000)
+update(jmod_1,1000)
+#sample the betas. we will use these to reconstruct the previous graph and the umax-clones.pdf graph
+lag_dif<-coda.samples(jmod_1,c("b"),10000)
+summary(lag_dif)
+# let's peek at the tau to make sure it is converging 
+#plot(coda.samples(jmod_1,c("tau"),10000))
+
+#next, we will use the posterior chains to create relative fitness from coefs
+lag.vals<-rbind(as.matrix(lag_dif[[1]]),as.matrix(lag_dif[[2]]),as.matrix(lag_dif[[3]]),as.matrix(lag_dif[[4]]))
+
+lag_fit<-t(sapply(paste0("b[",2:11,"]"),function(x)quantile((as.matrix(lag.vals)[,"b[1]"]+as.matrix(lag.vals)[,x]),c(.025,.5,.975))))
+
+anqL <- quantile(as.matrix(lag_dif[,"b[1]"]),c(.025,.5,.975))
+coef_fitL_an <- rbind(anqL, lag_fit)
+
+rownames(coef_fitL_an)<-clns
+
+coef_fitL_an_dat <- as.data.frame(coef_fitL_an)
+coef_fitL_an_dat$clones <- rownames(coef_fitL_an_dat)
+coef_fitL_an_dat$clones <- factor(coef_fitL_an_dat$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26", "ancestor"))
+
+Lcoefplot <- ggplot(coef_fitL_an_dat, aes(y = clones, x = coef_fitL_an_dat[,2], group = clones))+
+  geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
+  mytheme+
+  geom_errorbar(aes(xmin =coef_fitL_an_dat[,1], xmax =coef_fitL_an_dat[,3]), width = 0, size =1, color = "darkblue")+
+  scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26", "ancestor")) +
+  xlab("Lag time (h)")+
+  theme(axis.title.y = element_blank())
+ggsave("LJags_coef.pdf", Lcoefplot, width = 5, height = 6)
+
+#compared to the previous,method this one slightly diff variation around estimates
+# the estimates themselves are very close
+
+#plot as distribution
+lag_coef <- as.data.frame(lag.vals)
+names(lag_coef) <- clns
+
+lag_coef[,2:11] <- lag_coef[,2:11] +lag_coef[,1] 
+lag_coef_long <- lag_coef%>%
+  pivot_longer(cols = ancestor:M4, names_to = "clones", values_to = "coefficients")
+
+lag_coef_long$clones <- factor(coef_data_long$clones, c("M4", "M13", "M79", "M17", "M19", "M21", "M41", "M54", "M23", "M26", "ancestor"))
+
+LcoefDist <- ggplot(lag_coef_long, aes(y = clones, x = coefficients, group = clones, 
+                           fill = 0.5 - abs(0.5 - stat(ecdf))))+
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE, 
+                      rel_min_height = 0.0005, alpha = 0.5, scale = 2, color = "grey50" 
+                      )+
+   scale_y_discrete(labels = c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26", "ancestor")) +
+  theme(axis.title.y = element_blank())+
+  xlab("Lag time (h)")+
+  #scale_x_continuous(limits = c(0.04,0.18))+
+  mytheme+
+   scale_fill_gradient(low = "white", high = "#87CEFF",
+                      name = "Tail prob.")
+ 
+
+ggsave("LJags_coef_dist.pdf", LcoefDist, width = 5, height = 6)
+ 
+```
+
 
 #  OLDER
 ## Wrangle into treatments - Jay's 
