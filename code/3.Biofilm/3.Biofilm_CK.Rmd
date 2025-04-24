@@ -441,7 +441,7 @@ exp(summ$quantiles)
 exp(summ$quantiles[,"50%"])
 
 #lets compare these medians with the simple weighted means
-apply(as.data.frame(sapply(dat,"[",8))*as.matrix(wts_mat),2,sum)
+apply(as.data.frame(sapply(dat,"[",8)),2,sum)
 #nice. all makes sense and is working
 
 ##Let's calculate the relative fitness across all chains
@@ -463,35 +463,36 @@ plt_qnts_dat <- as.data.frame(plt_qnts)
 plt_qnts_dat$clones <- rownames(plt_qnts_dat)
 plt_qnts_dat$clones <- factor(plt_qnts_dat$clones, c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26"))
 
-biofilmplot <- ggplot(plt_qnts_dat, aes(y = clones, x = plt_qnts_dat[,2], group = clones))+
-  geom_vline(xintercept = 1, linetype = "dashed")+
+biofilmplot <- ggplot(plt_qnts_dat, aes(y = clones, x = log10(plt_qnts_dat[,2]), group = clones))+
+  geom_vline(xintercept = 0, linetype = "dashed")+
   geom_point(size = 4, shape = 21, color = "darkblue", fill = "white")+
-  geom_errorbar(aes(xmin =plt_qnts_dat[,1], xmax =plt_qnts_dat[,3]), width = 0, linewidth =1, color = "darkblue")+
+  geom_errorbar(aes(xmin =log10(plt_qnts_dat[,1]), xmax =log10(plt_qnts_dat[,3])), width = 0, linewidth =1, color = "darkblue")+
   mytheme+
-  xlab("Relative fitness")+
+  xlab("Relative biofilm")+
   theme(axis.title.y = element_blank())
 ggsave("biofilmJags_relative.pdf", biofilmplot, width = 5, height = 6)
 
 
 #plot as distribution
 data_df <- as.data.frame(exp(vals))
-data_df_rel <- data_df[,2:11]/(data_df[,1])
+data_df_rel <- log10(data_df[,2:11]/data_df[,1])
 names(data_df_rel) <- clns[-11]
 
 data_long <- data_df_rel %>%
-  pivot_longer(cols = m4:m79, names_to = "clones", values_to = "dists")
+  tidyr::pivot_longer(cols = m4:m79, names_to = "clones", values_to = "dists")
 
 data_long$clones <- factor(data_long$clones, c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26"))
 
 clone <- levels(data_long$clones)
 clones <- c("m4", "m13", "m79", "m17", "m19", "m21", "m41", "m54", "m23", "m26")
+
 dist.bio.rel <- ggplot(data_long, aes(y = as.numeric(clones), x = dists, group = clones, 
                            fill = 0.5 - abs(0.5 - stat(ecdf))))+
-  geom_vline(xintercept = 1, linetype = "dashed", color = "grey25")+
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey25")+
   stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE, 
-                      rel_min_height = 0.005, alpha = 0.5, scale = 1, color = "grey25" )+
-  xlab("Relative biofilm")+
-  scale_x_continuous(limits = c(0, 20), sec.axis=dup_axis())+
+                      rel_min_height = 0.005, alpha = 0.5, scale = 2, color = "grey25" )+
+  xlab(expression(paste("Relative biofilm, ", italic(log[10]), sep="")))+
+  scale_x_continuous(limits = c(-1.5, 1.5), sec.axis=dup_axis())+
   mytheme+
   theme(legend.position = c(.85,.8))+
    scale_fill_gradient(low = "white", high = "grey50",
@@ -503,7 +504,44 @@ dist.bio.rel <- ggplot(data_long, aes(y = as.numeric(clones), x = dists, group =
                                          breaks = 1:length(clone),
                                          labels = clones))
 
-ggsave("biofilm_jags_dist.pdf", dist.bio.rel, width = 5, height = 5)
+ggsave("biofilm_jags_dist_log.pdf", dist.bio.rel, width = 5, height = 5)
+
+# For reporting 
+
+data_df_rel2 <- data_df[,2:11]/data_df[,1]
+names(data_df_rel2) <- clns[-11]
+
+data_long2 <- data_df_rel2 %>%
+  tidyr::pivot_longer(cols = m4:m79, names_to = "clones", values_to = "dists")%>%
+   group_by(clones) %>% 
+  summarise(
+    Q1 = quantile(dists, 0.25, na.rm = T),
+    Median = quantile(dists, 0.5, na.rm = T),
+    Q3 = quantile(dists, 0.975, na.rm = T)
+  )
+
+data_df_rel3 <- data_long2 %>% 
+  mutate(mutation = c('ywc', 'sin', 'sin', 'sin', 'spore', 'spore', 
+                      'ywc', 'sin', 'sin', 'ywc')) %>%
+group_by(mutation) %>% 
+  summarise(
+    Q1 = mean(Q1),
+    Median = mean(Median),
+    Q3 = mean(Q3)
+  )
+
+names(data_df) <-  c("ancestor", "m4", "m13", "m17", "m19", "m21", "m23", "m26", "m41", "m54", "m79")
+
+data_long_abs <- data_df %>%
+  tidyr::pivot_longer(cols = ancestor:m79, names_to = "clones", values_to = "dists") %>%
+  group_by(clones) %>% 
+  summarise(
+    Q1 = quantile(dists, 0.25, na.rm = T),
+    Median = quantile(dists, 0.5, na.rm = T),
+    Q3 = quantile(dists, 0.975, na.rm = T)
+  )
+  
+
 
 ```
 
